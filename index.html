@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión de Casas</title>
+    <script src="lib/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 10px; }
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 5px; font-size: clamp(1.2em, 4vw, 1.5em); }
+        h2 { color: #34495e; margin-top: 15px; margin-bottom: 10px; font-size: clamp(1em, 3vw, 1.2em); }
+        h3 { color: #7f8c8d; margin-bottom: 5px; font-size: clamp(0.9em, 2.5vw, 1em); }
+        .header-info { text-align: center; color: #7f8c8d; margin-bottom: 10px; font-size: clamp(0.8em, 2vw, 0.9em); }
+        .action-buttons { display: flex; justify-content: center; gap: 5px; margin-bottom: 10px; flex-wrap: wrap; }
+        .action-buttons button, button { padding: 8px 15px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: clamp(0.8em, 2vw, 0.9em); min-width: 100px; }
+        .action-buttons button:hover, button:hover { background-color: #2980b9; }
+        .nav-buttons { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+        .nav-buttons button { background-color: #2ecc71; font-size: clamp(0.8em, 2vw, 0.9em); min-width: 80px; }
+        .nav-buttons button:hover { background-color: #27ae60; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 15px; }
+        .dashboard-card { background-color: white; padding: 10px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); text-align: center; }
+        .dashboard-card p { margin: 3px 0; color: #7f8c8d; font-size: clamp(0.8em, 2vw, 0.9em); }
+        .dashboard-card .value { font-size: clamp(1em, 3vw, 1.2em); font-weight: bold; }
+        .income-value { color: #27ae60; }
+        .expense-value { color: #e74c3c; }
+        .balance-value { transition: color 0.3s; }
+        table { width: 100%; border-collapse: collapse; background-color: white; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); margin-bottom: 10px; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; font-size: clamp(0.7em, 2vw, 0.9em); }
+        th { background-color: #ecf0f1; color: #34495e; }
+        tr:hover { background-color: #f9f9f9; }
+        input[type="text"], input[type="number"], input[type="date"], select { width: 100%; padding: 6px; margin: 3px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: clamp(0.7em, 2vw, 0.9em); }
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; margin-bottom: 3px; color: #34495e; font-size: clamp(0.7em, 2vw, 0.9em); }
+        .shared-houses div { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
+        .shared-houses input[type="number"] { width: 80px; font-size: clamp(0.7em, 2vw, 0.9em); }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); justify-content: center; align-items: center; }
+        .modal-content { background-color: white; padding: 15px; border-radius: 6px; width: 90%; max-width: 400px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); font-size: clamp(0.8em, 2vw, 0.9em); }
+        .modal-content h3 { margin-top: 0; font-size: clamp(1em, 3vw, 1.1em); }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 5px; margin-top: 15px; }
+        .hidden { display: none; }
+        .report-section { margin-bottom: 15px; }
+        .report-section .form-group { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+        #reportContent { background-color: white; padding: 10px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); font-size: clamp(0.8em, 2vw, 0.9em); }
+        @media (max-width: 600px) {
+            .container { padding: 5px; }
+            .dashboard-grid { grid-template-columns: 1fr; }
+            .action-buttons button, .nav-buttons button { width: 100%; margin-bottom: 5px; }
+            table { font-size: 0.7em; }
+            th, td { padding: 4px; }
+            .modal-content { max-width: 100%; width: 95%; }
+            .report-section .form-group { flex-direction: column; align-items: stretch; }
+            .report-section .form-group button { width: 100%; margin-top: 5px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sistema de Gestión de Casas</h1>
+        <p class="header-info">Control de casas, gastos e ingresos</p>
+        <p class="header-info">Último acceso: 04:15 PM -05, Lunes 2 de Junio de 2025</p>
+        <div class="action-buttons">
+            <button id="newHouseBtn">Nueva Casa</button>
+            <button id="backupBtn">Backup</button>
+            <input type="file" id="importBackup" accept=".json" style="display: none;">
+            <button id="importBtn">Importar Backup</button>
+            <button id="exportExcelBtn">Exportar Gastos a Excel</button>
+            <button id="syncDriveBtn">Sincronizar con Google Drive</button>
+        </div>
+    </div>
+
+    <div class="nav-buttons">
+        <button data-section="dashboard">Dashboard</button>
+        <button data-section="gastos">Gastos</button>
+        <button data-section="ingresos">Ingresos</button>
+        <button data-section="reportes">Reportes</button>
+    </div>
+
+    <div class="container">
+        <div id="dashboard" class="section">
+            <h2>Dashboard</h2>
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <p>Total Casas</p>
+                    <p class="value" id="totalHouses">0</p>
+                </div>
+                <div class="dashboard-card">
+                    <p>Total Ingresos</p>
+                    <p class="value income-value" id="totalIncomes">$0</p>
+                </div>
+                <div class="dashboard-card">
+                    <p>Total Gastos</p>
+                    <p class="value expense-value" id="totalExpenses">$0</p>
+                </div>
+                <div class="dashboard-card">
+                    <p>Saldo</p>
+                    <p class="value balance-value" id="totalBalance">$0</p>
+                </div>
+            </div>
+
+            <h3>Casas Registradas</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Casa</th>
+                        <th>Gastos</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="housesList"></tbody>
+            </table>
+            <p>Haz clic en una casa para ver el detallado de gastos.</p>
+            <div id="houseExpensesDetail" class="hidden">
+                <h3 id="houseExpensesTitle">Detallado de Gastos</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Descripción</th>
+                            <th>Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody id="houseExpensesList"></tbody>
+                </table>
+                <p id="houseExpensesTotal">Total Gastos: $0</p>
+                <div>
+                    <button id="exportDetailPdf">Exportar a PDF</button>
+                    <button id="exportDetailExcel">Exportar a Excel</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="gastos" class="section hidden">
+            <h2>Registro de Gastos</h2>
+            <div class="form-group">
+                <label for="expenseDescription">Descripción</label>
+                <input type="text" id="expenseDescription">
+            </div>
+            <div class="form-group">
+                <label for="expenseAmount">Valor Total</label>
+                <input type="text" id="expenseAmount" data-value="0" oninput="formatInput(this)">
+            </div>
+            <div class="form-group">
+                <label for="expenseDate">Fecha</label>
+                <input type="date" id="expenseDate" value="2025-06-02">
+            </div>
+            <div class="form-group">
+                <label for="sharedExpense">Gasto compartido entre varias casas</label>
+                <input type="checkbox" id="sharedExpense">
+            </div>
+            <div class="form-group" id="houseAssignment">
+                <label for="expenseHouse">Asignar a Casa</label>
+                <select id="expenseHouse">
+                    <option value="">Seleccione una casa</option>
+                </select>
+            </div>
+            <div class="form-group hidden" id="sharedHouseAssignments">
+                <label>Distribución por Casa</label>
+                <div id="sharedHousesList" class="shared-houses"></div>
+            </div>
+            <button id="registerExpense">Registrar Gasto</button>
+
+            <h3>Gastos Registrados</h3>
+            <div class="form-group">
+                <label for="filterHouses">Todas las casas</label>
+                <select id="filterHouses">
+                    <option value="all">Todas las casas</option>
+                </select>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Descripción</th>
+                        <th>Casa</th>
+                        <th>Valor</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="expensesList"></tbody>
+            </table>
+        </div>
+
+        <div id="ingresos" class="section hidden">
+            <h2>Registro de Ingresos</h2>
+            <div class="form-group">
+                <label for="incomeDescription">Descripción</label>
+                <input type="text" id="incomeDescription">
+            </div>
+            <div class="form-group">
+                <label for="incomeAmount">Valor</label>
+                <input type="text" id="incomeAmount" data-value="0" oninput="formatInput(this)">
+            </div>
+            <div class="form-group">
+                <label for="incomeDate">Fecha</label>
+                <input type="date" id="incomeDate" value="2025-06-02">
+            </div>
+            <button id="registerIncome">Registrar Ingreso</button>
+
+            <h3>Ingresos Registrados</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Descripción</th>
+                        <th>Valor</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="incomesList"></tbody>
+            </table>
+        </div>
+
+        <div id="reportes" class="section hidden">
+            <h2>Reportes</h2>
+            <div class="report-section">
+                <h3>Reporte por Casa</h3>
+                <div class="form-group">
+                    <label for="reportHouse">Seleccionar Casa</label>
+                    <select id="reportHouse">
+                        <option value="">Seleccione una casa</option>
+                    </select>
+                    <button id="generateHouseReport">Generar Reporte</button>
+                </div>
+            </div>
+            <div class="report-section">
+                <h3>Reporte Consolidado</h3>
+                <div class="form-group">
+                    <label for="consolidatedStartDate">Período</label>
+                    <input type="date" id="consolidatedStartDate" value="2025-06-01">
+                    <input type="date" id="consolidatedEndDate" value="2025-06-02">
+                    <button id="generateConsolidatedReport">Generar Reporte</button>
+                </div>
+            </div>
+            <div class="report-section">
+                <h3>Reporte Detallado de Ingresos</h3>
+                <div class="form-group">
+                    <label for="incomeStartDate">Período</label>
+                    <input type="date" id="incomeStartDate" value="2025-06-01">
+                    <input type="date" id="incomeEndDate" value="2025-06-02">
+                    <button id="generateIncomeReport">Generar Reporte</button>
+                </div>
+            </div>
+            <div id="reportContent">
+                <h3>Vista Previa</h3>
+            </div>
+            <button id="exportPdf">Exportar a PDF</button>
+        </div>
+
+        <div id="editModal" class="modal">
+            <div class="modal-content">
+                <h3 id="editModalTitle">Editar Transacción</h3>
+                <div class="form-group">
+                    <label for="editDescription">Descripción</label>
+                    <input type="text" id="editDescription">
+                </div>
+                <div class="form-group">
+                    <label for="editAmount">Valor</label>
+                    <input type="text" id="editAmount" data-value="0" oninput="formatInput(this)">
+                </div>
+                <div class="form-group">
+                    <label for="editDate">Fecha</label>
+                    <input type="date" id="editDate" value="2025-06-02">
+                </div>
+                <div class="form-group" id="editHouseSection">
+                    <label for="editHouse">Asignar a Casa</label>
+                    <select id="editHouse">
+                        <option value="">Seleccione una casa</option>
+                    </select>
+                </div>
+                <div class="modal-buttons">
+                    <button id="cancelEdit">Cancelar</button>
+                    <button id="saveEdit">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function formatInput(input) {
+            let value = input.value.replace(/[^0-9]/g, '');
+            if (value === '') value = '0';
+            input.dataset.value = parseInt(value);
+            input.value = parseInt(value).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        }
+    </script>
+    <script src="renderer.js"></script>
+</body>
+</html>
