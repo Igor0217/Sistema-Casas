@@ -1,1151 +1,1116 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const { jsPDF } = window.jspdf;
-    const { utils, write, WorkBook } = XLSX;
+  const { jsPDF } = window.jspdf;
+  const { utils, write, WorkBook } = XLSX;
 
-    // Formateador para pesos colombianos sin decimales
-    const formatter = new Intl.NumberFormat('es-CO', {
-        style: 'currency',
-        currency: 'COP',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
+  // Google Drive API configuration
+  const CLIENT_ID = 'YOUR_CLIENT_ID'; // Replace with your Google Cloud OAuth Client ID
+  const API_KEY = 'YOUR_API_KEY'; // Replace with your Google Cloud API Key
+  const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
+  const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+  let gapiLoaded = false;
+  let isSignedIn = false;
+
+  // Formatter for Colombian pesos without decimals
+  const formatter = new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  });
+
+  // Initial data
+  let houses = [];
+  let expenses = [];
+  let incomes = [];
+
+  // Initialize Google API client
+  function initGapiClient() {
+    gapi.client.init({
+      apiKey: API_KEY,
+      clientId: CLIENT_ID,
+      discoveryDocs: DISCOVERY_DOCS,
+      scope: SCOPES
+    }).then(() => {
+      gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+      updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+    }, (error) => {
+      console.error('Error initializing GAPI client:', error);
+      alert('Error initializing Google Drive. Falling back to local storage.');
     });
+  }
 
-    // Datos iniciales
-    let houses = [];
-    let expenses = [];
-    let incomes = [];
+  // Handle sign-in status
+  function updateSigninStatus(signedIn) {
+    isSignedIn = signedIn;
+    if (isSignedIn) {
+      loadDataFromDrive();
+    } else {
+      // Load from localStorage as fallback
+      houses = JSON.parse(localStorage.getItem('houses')) || [];
+      expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+      incomes = JSON.parse(localStorage.getItem('incomes')) || [];
+      updateHouseSelects();
+      updateDashboard();
+      updateExpensesList();
+      updateIncomesList();
+    }
+  }
 
-    // Configuración de Google Drive API
-    const CLIENT_ID = 'TU_CLIENT_ID'; // Reemplaza con tu Client ID de Google API
-    const API_KEY = 'TU_API_KEY'; // Reemplaza con tu API Key de Google API
-    const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
-    const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-    let fileId = null;
+  // Load Google API client
+  function loadGapi() {
+    if (!gapiLoaded) {
+      gapi.load('client:auth2', () => {
+        gapiLoaded = true;
+        initGapiClient();
+      });
+    }
+  }
 
-    // Inicializar Google API
-    function initClient() {
-        gapi.load('client:auth2', () => {
-            gapi.client.init({
-                apiKey: API_KEY,
-                clientId: CLIENT_ID,
-                discoveryDocs: DISCOVERY_DOCS,
-                scope: SCOPES
-            }).then(() => {
-                gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
-                updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
-                const syncDriveBtn = document.getElementById('syncDriveBtn');
-                const syncDriveClone = syncDriveBtn.cloneNode(true);
-                syncDriveBtn.parentNode.replaceChild(syncDriveClone, syncDriveBtn);
-                syncDriveClone.addEventListener('click', handleSyncDrive);
-            }).catch(err => {
-                console.error('Error al inicializar Google API:', err);
-            });
+  // Sign in to Google
+  function signIn() {
+    gapi.auth2.getAuthInstance().signIn();
+  }
+
+  // Save data to Google Drive
+  function saveDataToDrive() {
+    if (!isSignedIn) {
+      alert('Please sign in to Google Drive to sync data.');
+      return;
+    }
+    const data = { houses, expenses, incomes };
+    const fileContent = JSON.stringify(data, null, 2);
+    const metadata = {
+      name: 'house-management-data.json',
+      mimeType: 'application/json',
+      parents: ['appDataFolder']
+    };
+
+    // Check if file exists
+    gapi.client.drive.files.list({
+      spaces: 'appDataFolder',
+      q: "name='house-management-data.json'"
+    }).then(response => {
+      const files = response.result.files;
+      if (files && files.length > 0) {
+        // Update existing file
+        const fileId = files[0].id;
+        gapi.client.request({
+          path: `/upload/drive/v3/files/${fileId}`,
+          method: 'PATCH',
+          params: { uploadType: 'media' },
+          body: fileContent
+        }).then(() => {
+          console.log('Data updated in Google Drive');
+        }, error => {
+          console.error('Error updating file:', error);
+          alert('Error saving to Google Drive.');
         });
-    }
+      } else {
+        // Create new file
+        gapi.client.drive.files.create({
+          resource: metadata,
+          media: {
+            mimeType: 'application/json',
+            body: fileContent
+          },
+          fields: 'id'
+        }).then(() => {
+          console.log('Data saved to Google Drive');
+        }, error => {
+          console.error('Error creating file:', error);
+          alert('Error saving to Google Drive.');
+        });
+      }
+    }, error => {
+      console.error('Error listing files:', error);
+      alert('Error accessing Google Drive.');
+    });
+  }
 
-    function updateSigninStatus(isSignedIn) {
-        if (isSignedIn) {
-            loadFromDrive();
-        } else {
-            gapi.auth2.getAuthInstance().signIn();
-        }
+  // Load data from Google Drive
+  function loadDataFromDrive() {
+    if (!isSignedIn) {
+      return;
     }
-
-    // Cargar datos desde Google Drive
-    function loadFromDrive() {
-        // Verificar si localStorage tiene datos
+    gapi.client.drive.files.list({
+      spaces: 'appDataFolder',
+      q: "name='house-management-data.json'"
+    }).then(response => {
+      const files = response.result.files;
+      if (files && files.length > 0) {
+        const fileId = files[0].id;
+        gapi.client.drive.files.get({
+          fileId: fileId,
+          alt: 'media'
+        }).then(response => {
+          const data = JSON.parse(response.body);
+          houses = data.houses || [];
+          expenses = data.expenses || [];
+          incomes = data.incomes || [];
+          // Save to localStorage as backup
+          localStorage.setItem('houses', JSON.stringify(houses));
+          localStorage.setItem('expenses', JSON.stringify(expenses));
+          localStorage.setItem('incomes', JSON.stringify(incomes));
+          updateHouseSelects();
+          updateDashboard();
+          updateExpensesList();
+          updateIncomesList();
+        }, error => {
+          console.error('Error loading file:', error);
+          alert('Error loading from Google Drive. Using local data.');
+          // Fallback to localStorage
+          houses = JSON.parse(localStorage.getItem('houses')) || [];
+          expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+          incomes = JSON.parse(localStorage.getItem('incomes')) || [];
+          updateHouseSelects();
+          updateDashboard();
+          updateExpensesList();
+          updateIncomesList();
+        });
+      } else {
+        // No file found, use localStorage
         houses = JSON.parse(localStorage.getItem('houses')) || [];
         expenses = JSON.parse(localStorage.getItem('expenses')) || [];
         incomes = JSON.parse(localStorage.getItem('incomes')) || [];
-
-        if (houses.length > 0 || expenses.length > 0 || incomes.length > 0) {
-            // Si hay datos en localStorage, no necesitamos descargar de Drive
-            updateDashboard();
-            updateHouseSelects();
-            updateExpensesList();
-            updateIncomesList();
-            return;
-        }
-
-        // Buscar archivo existente en Google Drive
-        gapi.client.drive.files.list({
-            q: "name='sistema-casas-backup.json'",
-            fields: 'files(id, name)'
-        }).then(response => {
-            const files = response.result.files;
-            if (files && files.length > 0) {
-                fileId = files[0].id;
-                gapi.client.drive.files.get({
-                    fileId: fileId,
-                    alt: 'media'
-                }).then(res => {
-                    const data = JSON.parse(res.body);
-                    houses = data.houses || [];
-                    expenses = data.expenses || [];
-                    incomes = data.incomes || [];
-                    saveData();
-                    updateDashboard();
-                    updateHouseSelects();
-                    updateExpensesList();
-                    updateIncomesList();
-                }).catch(err => {
-                    console.error('Error al cargar desde Google Drive:', err);
-                    updateDashboard();
-                    updateHouseSelects();
-                    updateExpensesList();
-                    updateIncomesList();
-                });
-            } else {
-                updateDashboard();
-                updateHouseSelects();
-                updateExpensesList();
-                updateIncomesList();
-            }
-        }).catch(err => {
-            console.error('Error al buscar archivo en Google Drive:', err);
-            updateDashboard();
-            updateHouseSelects();
-            updateExpensesList();
-            updateIncomesList();
-        });
-    }
-
-    // Guardar datos en Google Drive
-    function saveToDrive() {
-        if (!gapi.auth2.getAuthInstance().isSignedIn.get()) {
-            console.log('No está autenticado con Google Drive. No se puede guardar.');
-            return;
-        }
-
-        const data = { houses, expenses, incomes };
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const metadata = {
-            name: 'sistema-casas-backup.json',
-            mimeType: 'application/json'
-        };
-
-        const form = new FormData();
-        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-        form.append('file', blob);
-
-        if (fileId) {
-            // Actualizar archivo existente
-            gapi.client.request({
-                path: `/upload/drive/v3/files/${fileId}`,
-                method: 'PATCH',
-                params: { uploadType: 'multipart' },
-                body: form
-            }).then(response => {
-                console.log('Datos actualizados en Google Drive:', response);
-            }).catch(err => {
-                console.error('Error al actualizar en Google Drive:', err);
-            });
-        } else {
-            // Crear nuevo archivo
-            gapi.client.request({
-                path: '/upload/drive/v3/files',
-                method: 'POST',
-                params: { uploadType: 'multipart' },
-                body: form
-            }).then(response => {
-                fileId = response.result.id;
-                console.log('Datos guardados en Google Drive:', response);
-            }).catch(err => {
-                console.error('Error al guardar en Google Drive:', err);
-            });
-        }
-    }
-
-    function handleSyncDrive() {
-        if (gapi.auth2.getAuthInstance().isSignedIn.get()) {
-            saveToDrive();
-        } else {
-            gapi.auth2.getAuthInstance().signIn();
-        }
-    }
-
-    // Guardar datos en localStorage
-    function saveData() {
-        localStorage.setItem('houses', JSON.stringify(houses));
-        localStorage.setItem('expenses', JSON.stringify(expenses));
-        localStorage.setItem('incomes', JSON.stringify(incomes));
-        saveToDrive();
-    }
-
-    // Actualizar selects de casas
-    function updateHouseSelects() {
-        const expenseHouseSelect = document.getElementById('expenseHouse');
-        const editHouseSelect = document.getElementById('editHouse');
-        const reportHouseSelect = document.getElementById('reportHouse');
-        const filterHousesSelect = document.getElementById('filterHouses');
-        [expenseHouseSelect, editHouseSelect, reportHouseSelect, filterHousesSelect].forEach(select => {
-            if (select) {
-                const currentValue = select.value;
-                select.innerHTML = select.id === 'filterHouses' ? '<option value="all">Todas las casas</option>' : '<option value="">Seleccione una casa</option>';
-                houses.forEach(house => {
-                    const option = document.createElement('option');
-                    option.value = house;
-                    option.textContent = house;
-                    select.appendChild(option);
-                });
-                select.value = currentValue;
-            }
-        });
-        updateSharedHouseAssignments();
-    }
-
-    // Actualizar dashboard
-    function updateDashboard() {
-        document.getElementById('totalHouses').textContent = houses.length;
-        const totalExpensesAmount = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-        const totalIncomesAmount = incomes.reduce((sum, inc) => sum + inc.amount, 0);
-        const totalBalance = totalIncomesAmount - totalExpensesAmount;
-
-        document.getElementById('totalIncomes').textContent = formatter.format(totalIncomesAmount);
-        document.getElementById('totalExpenses').textContent = formatter.format(totalExpensesAmount);
-        document.getElementById('totalBalance').textContent = formatter.format(totalBalance);
-
-        const balanceValue = document.getElementById('totalBalance');
-        if (totalBalance > 0) {
-            balanceValue.style.color = '#27ae60';
-        } else if (totalBalance < 0) {
-            balanceValue.style.color = '#e74c3c';
-        } else {
-            balanceValue.style.color = '#f39c12';
-        }
-
-        const housesList = document.getElementById('housesList');
-        housesList.innerHTML = '';
-        houses.forEach(house => {
-            const houseExpenses = expenses.filter(exp => exp.house === house);
-            const totalHouseExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td class="p-2 cursor-pointer hover:bg-gray-100" data-house="${house}">${house}</td>
-                <td class="p-2">${formatter.format(totalHouseExpenses)}</td>
-                <td class="p-2"><button class="bg-red-500 text-white p-1 rounded hover:bg-red-600 delete-house" data-house="${house}">Eliminar</button></td>
-            `;
-            housesList.appendChild(row);
-        });
-
-        housesList.querySelectorAll('tr td:first-child').forEach(td => {
-            td.addEventListener('click', () => {
-                const house = td.dataset.house;
-                const houseExpenses = expenses.filter(exp => exp.house === house);
-                const houseExpensesList = document.getElementById('houseExpensesList');
-                const houseExpensesDetail = document.getElementById('houseExpensesDetail');
-                const houseExpensesTitle = document.getElementById('houseExpensesTitle');
-                const houseExpensesTotal = document.getElementById('houseExpensesTotal');
-
-                houseExpensesTitle.textContent = `Detallado de Gastos - Casa: ${house}`;
-                houseExpensesList.innerHTML = houseExpenses.map(exp => `
-                    <tr>
-                        <td class="p-2 border">${exp.date}</td>
-                        <td class="p-2 border">${exp.description}</td>
-                        <td class="p-2 border">${formatter.format(exp.amount)}</td>
-                    </tr>
-                `).join('');
-                houseExpensesTotal.textContent = `Total Gastos: ${formatter.format(houseExpenses.reduce((sum, exp) => sum + exp.amount, 0))}`;
-                houseExpensesDetail.classList.remove('hidden');
-            });
-        });
-    }
-
-    // Registrar nueva casa
-    const newHouseBtn = document.getElementById('newHouseBtn');
-    const newHouseBtnClone = newHouseBtn.cloneNode(true);
-    newHouseBtn.parentNode.replaceChild(newHouseBtnClone, newHouseBtn);
-    newHouseBtnClone.addEventListener('click', () => {
-        const houseName = prompt('Ingrese el nombre de la nueva casa:');
-        if (houseName && !houses.includes(houseName)) {
-            houses.push(houseName);
-            saveData();
-            updateHouseSelects();
-            updateDashboard();
-        } else if (houses.includes(houseName)) {
-            alert('Esta casa ya existe.');
-        } else {
-            alert('Por favor, ingrese un nombre válido.');
-        }
-    });
-
-    // Eliminar casa
-    document.getElementById('housesList').addEventListener('click', (e) => {
-        if (e.target.classList.contains('delete-house')) {
-            const house = e.target.dataset.house;
-            if (confirm(`¿Está seguro de eliminar la casa ${house}?`)) {
-                houses = houses.filter(h => h !== house);
-                expenses = expenses.filter(exp => exp.house !== house);
-                saveData();
-                updateHouseSelects();
-                updateDashboard();
-                updateExpensesList();
-            }
-        }
-    });
-
-    // Manejo de gastos compartidos
-    function updateSharedHouseAssignments() {
-        const sharedExpense = document.getElementById('sharedExpense');
-        const houseAssignment = document.getElementById('houseAssignment');
-        const sharedHouseAssignments = document.getElementById('sharedHouseAssignments');
-        const sharedHousesList = document.getElementById('sharedHousesList');
-
-        if (sharedExpense.checked) {
-            houseAssignment.classList.add('hidden');
-            sharedHouseAssignments.classList.remove('hidden');
-            sharedHousesList.innerHTML = '';
-            houses.forEach(house => {
-                const div = document.createElement('div');
-                div.className = 'flex items-center mb-2';
-                div.innerHTML = `
-                    <span class="mr-2">${house}</span>
-                    <input type="text" class="p-1 border rounded w-24" data-house="${house}" data-value="0" oninput="formatInput(this)" placeholder="Valor">
-                `;
-                sharedHousesList.appendChild(div);
-            });
-        } else {
-            houseAssignment.classList.remove('hidden');
-            sharedHouseAssignments.classList.add('hidden');
-        }
-    }
-
-    const sharedExpenseCheckbox = document.getElementById('sharedExpense');
-    const sharedExpenseClone = sharedExpenseCheckbox.cloneNode(true);
-    sharedExpenseCheckbox.parentNode.replaceChild(sharedExpenseClone, sharedExpenseCheckbox);
-    sharedExpenseClone.addEventListener('change', updateSharedHouseAssignments);
-
-    // Registrar gasto
-    const registerExpenseBtn = document.getElementById('registerExpense');
-    const registerExpenseClone = registerExpenseBtn.cloneNode(true);
-    registerExpenseBtn.parentNode.replaceChild(registerExpenseClone, registerExpenseBtn);
-    registerExpenseClone.addEventListener('click', () => {
-        const description = document.getElementById('expenseDescription').value.trim();
-        const date = document.getElementById('expenseDate').value;
-        const shared = document.getElementById('sharedExpense').checked;
-
-        if (!description || description === '') {
-            alert('Por favor, ingrese una descripción.');
-            return;
-        }
-        if (!date) {
-            alert('Por favor, seleccione una fecha.');
-            return;
-        }
-
-        const totalExpensesAmount = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-        const totalIncomesAmount = incomes.reduce((sum, inc) => sum + inc.amount, 0);
-        const currentBalance = totalIncomesAmount - totalExpensesAmount;
-
-        if (shared) {
-            const sharedHousesList = document.getElementById('sharedHousesList');
-            const houseInputs = sharedHousesList.getElementsByTagName('input');
-            let totalAmount = 0;
-            for (let input of houseInputs) {
-                const amount = parseInt(input.dataset.value) || 0;
-                totalAmount += amount;
-                if (amount > 0) {
-                    expenses.push({ description, amount, date, house: input.dataset.house });
-                }
-            }
-            if (totalAmount === 0) {
-                alert('Por favor, ingrese al menos un valor para alguna casa.');
-                return;
-            }
-            if (currentBalance <= 0) {
-                alert('Advertencia: El saldo actual es insuficiente o cero. El gasto se registrará, pero revise su situación financiera.');
-            }
-        } else {
-            const house = document.getElementById('expenseHouse').value;
-            const amount = parseInt(document.getElementById('expenseAmount').dataset.value) || 0;
-            if (amount <= 0) {
-                alert('Por favor, ingrese un valor válido mayor a 0.');
-                return;
-            }
-            if (!house) {
-                alert('Por favor, seleccione una casa.');
-                return;
-            }
-            if (currentBalance <= 0) {
-                alert('Advertencia: El saldo actual es insuficiente o cero. El gasto se registrará, pero revise su situación financiera.');
-            }
-            expenses.push({ description, amount, date, house });
-        }
-
-        saveData();
+        updateHouseSelects();
         updateDashboard();
         updateExpensesList();
-        document.getElementById('expenseDescription').value = '';
-        document.getElementById('expenseAmount').value = '';
-        document.getElementById('expenseAmount').dataset.value = '0';
-        document.getElementById('expenseDate').value = '2025-06-02';
-        document.getElementById('sharedExpense').checked = false;
-        updateSharedHouseAssignments();
+        updateIncomesList();
+      }
+    }, error => {
+      console.error('Error listing files:', error);
+      alert('Error accessing Google Drive. Using local data.');
+      // Fallback to localStorage
+      houses = JSON.parse(localStorage.getItem('houses')) || [];
+      expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+      incomes = JSON.parse(localStorage.getItem('incomes')) || [];
+      updateHouseSelects();
+      updateDashboard();
+      updateExpensesList();
+      updateIncomesList();
     });
+  }
 
-    // Actualizar lista de gastos
-    function updateExpensesList() {
-        const expensesList = document.getElementById('expensesList');
-        const filterHouse = document.getElementById('filterHouses').value;
-        expensesList.innerHTML = '';
+  // Save data (to both localStorage and Google Drive)
+  function saveData() {
+    localStorage.setItem('houses', JSON.stringify(houses));
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+    localStorage.setItem('incomes', JSON.stringify(incomes));
+    saveDataToDrive();
+  }
 
-        let filteredExpenses = expenses;
-        if (filterHouse !== 'all') {
-            filteredExpenses = expenses.filter(exp => exp.house === filterHouse);
-        }
+  // Format input for currency
+  window.formatInput = function(input) {
+    let value = input.value.replace(/[^0-9]/g, '');
+    input.dataset.value = value;
+    input.value = value ? formatter.format(parseInt(value)) : '';
+  };
 
-        filteredExpenses.forEach((exp, index) => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td class="p-2">${exp.date}</td>
-                <td class="p-2">${exp.description}</td>
-                <td class="p-2">${exp.house || 'Compartido'}</td>
-                <td class="p-2">${formatter.format(exp.amount)}</td>
-                <td class="p-2">
-                    <button class="bg-blue-500 text-white p-1 rounded hover:bg-blue-600 edit-expense" data-index="${index}">Editar</button>
-                    <button class="bg-red-500 text-white p-1 rounded hover:bg-red-600 delete-expense" data-index="${index}">Eliminar</button>
-                </td>
-            `;
-            expensesList.appendChild(row);
-        });
-
-        // Asignar event listeners después de renderizar, evitando duplicados
-        const editButtons = expensesList.querySelectorAll('.edit-expense');
-        const deleteButtons = expensesList.querySelectorAll('.delete-expense');
-
-        editButtons.forEach(button => {
-            const newButton = button.cloneNode(true);
-            button.parentNode.replaceChild(newButton, button);
-            newButton.addEventListener('click', () => {
-                const index = parseInt(newButton.dataset.index);
-                const expense = expenses[index];
-                const editModal = document.getElementById('editModal');
-                const editDescription = document.getElementById('editDescription');
-                const editAmount = document.getElementById('editAmount');
-                const editDate = document.getElementById('editDate');
-                const editHouseSection = document.getElementById('editHouseSection');
-                const editHouse = document.getElementById('editHouse');
-
-                document.getElementById('editModalTitle').textContent = 'Editar Gasto';
-                editDescription.value = expense.description;
-                editAmount.value = expense.amount.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-                editAmount.dataset.value = expense.amount;
-                editDate.value = expense.date;
-                editHouseSection.classList.remove('hidden');
-                updateHouseSelects();
-                editHouse.value = expense.house || '';
-                window.editIndex = index;
-                window.editType = 'expense';
-                editModal.classList.remove('hidden');
-            });
-        });
-
-        deleteButtons.forEach(button => {
-            const newButton = button.cloneNode(true);
-            button.parentNode.replaceChild(newButton, button);
-            newButton.addEventListener('click', () => {
-                const index = parseInt(newButton.dataset.index);
-                if (confirm('¿Está seguro de eliminar este gasto?')) {
-                    expenses.splice(index, 1);
-                    saveData();
-                    updateDashboard();
-                    updateExpensesList();
-                }
-            });
-        });
-    }
-
+  // Update house selects
+  function updateHouseSelects() {
+    const expenseHouseSelect = document.getElementById('expenseHouse');
+    const editHouseSelect = document.getElementById('editHouse');
+    const reportHouseSelect = document.getElementById('reportHouse');
     const filterHousesSelect = document.getElementById('filterHouses');
-    const filterHousesClone = filterHousesSelect.cloneNode(true);
-    filterHousesSelect.parentNode.replaceChild(filterHousesClone, filterHousesSelect);
-    filterHousesClone.addEventListener('change', updateExpensesList);
+    [expenseHouseSelect, editHouseSelect, reportHouseSelect, filterHousesSelect].forEach(select => {
+      if (select) {
+        const currentValue = select.value;
+        select.innerHTML = select.id === 'filterHouses' ? '<option value="all">Todas las casas</option>' : '<option value="">Seleccione una casa</option>';
+        houses.forEach(house => {
+          const option = document.createElement('option');
+          option.value = house;
+          option.textContent = house;
+          select.appendChild(option);
+        });
+        select.value = currentValue;
+      }
+    });
+    updateSharedHouseAssignments();
+  }
 
-    // Registrar ingreso
-    const registerIncomeBtn = document.getElementById('registerIncome');
-    const registerIncomeClone = registerIncomeBtn.cloneNode(true);
-    registerIncomeBtn.parentNode.replaceChild(registerIncomeClone, registerIncomeBtn);
-    registerIncomeClone.addEventListener('click', () => {
-        const description = document.getElementById('incomeDescription').value.trim();
-        const amount = parseInt(document.getElementById('incomeAmount').dataset.value) || 0;
-        const date = document.getElementById('incomeDate').value;
+  // Update dashboard
+  function updateDashboard() {
+    document.getElementById('totalHouses').textContent = houses.length;
+    const totalExpensesAmount = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalIncomesAmount = incomes.reduce((sum, inc) => sum + inc.amount, 0);
+    const totalBalance = totalIncomesAmount - totalExpensesAmount;
 
-        if (!description || description === '') {
-            alert('Por favor, ingrese una descripción.');
-            return;
-        }
-        if (amount <= 0) {
-            alert('Por favor, ingrese un valor válido mayor a 0.');
-            return;
-        }
-        if (!date) {
-            alert('Por favor, seleccione una fecha.');
-            return;
-        }
+    document.getElementById('totalIncomes').textContent = formatter.format(totalIncomesAmount);
+    document.getElementById('totalExpenses').textContent = formatter.format(totalExpensesAmount);
+    document.getElementById('totalBalance').textContent = formatter.format(totalBalance);
 
-        incomes.push({ description, amount, date });
+    const balanceValue = document.getElementById('totalBalance');
+    if (totalBalance > 0) {
+      balanceValue.style.color = '#27ae60';
+    } else if (totalBalance < 0) {
+      balanceValue.style.color = '#e74c3c';
+    } else {
+      balanceValue.style.color = '#f39c12';
+    }
+
+    const housesList = document.getElementById('housesList');
+    housesList.innerHTML = '';
+    houses.forEach(house => {
+      const houseExpenses = expenses.filter(exp => exp.house === house);
+      const totalHouseExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td class="p-2 cursor-pointer hover:bg-gray-100" data-house="${house}">${house}</td>
+        <td class="p-2">${formatter.format(totalHouseExpenses)}</td>
+        <td class="p-2"><button class="bg-red-500 text-white p-1 rounded hover:bg-red-600 delete-house" data-house="${house}">Eliminar</button></td>
+      `;
+      housesList.appendChild(row);
+    });
+
+    housesList.querySelectorAll('tr td:first-child').forEach(td => {
+      td.addEventListener('click', () => {
+        const house = td.dataset.house;
+        const houseExpenses = expenses.filter(exp => exp.house === house);
+        const houseExpensesList = document.getElementById('houseExpensesList');
+        const houseExpensesDetail = document.getElementById('houseExpensesDetail');
+        const houseExpensesTitle = document.getElementById('houseExpensesTitle');
+        const houseExpensesTotal = document.getElementById('houseExpensesTotal');
+
+        houseExpensesTitle.textContent = `Detallado de Gastos - Casa: ${house}`;
+        houseExpensesList.innerHTML = houseExpenses.map(exp => `
+          <tr>
+            <td class="p-2 border">${exp.date}</td>
+            <td class="p-2 border">${exp.description}</td>
+            <td class="p-2 border">${formatter.format(exp.amount)}</td>
+          </tr>
+        `).join('');
+        houseExpensesTotal.textContent = `Total Gastos: ${formatter.format(houseExpenses.reduce((sum, exp) => sum + exp.amount, 0))}`;
+        houseExpensesDetail.classList.remove('hidden');
+      });
+    });
+  }
+
+  // Register new house
+  document.getElementById('newHouseBtn').addEventListener('click', () => {
+    const houseName = prompt('Ingrese el nombre de la nueva casa:');
+    if (houseName && !houses.includes(houseName)) {
+      houses.push(houseName);
+      saveData();
+      updateHouseSelects();
+      updateDashboard();
+    } else if (houses.includes(houseName)) {
+      alert('Esta casa ya existe.');
+    } else {
+      alert('Por favor, ingrese un nombre válido.');
+    }
+  });
+
+  // Delete house
+  document.getElementById('housesList').addEventListener('click', (e) => {
+    if (e.target.classList.contains('delete-house')) {
+      const house = e.target.dataset.house;
+      if (confirm(`¿Está seguro de eliminar la casa ${house}?`)) {
+        houses = houses.filter(h => h !== house);
+        expenses = expenses.filter(exp => exp.house !== house);
         saveData();
+        updateHouseSelects();
         updateDashboard();
-        updateIncomesList();
-        document.getElementById('incomeDescription').value = '';
-        document.getElementById('incomeAmount').value = '';
-        document.getElementById('incomeAmount').dataset.value = '0';
-        document.getElementById('incomeDate').value = '2025-06-02';
-    });
+        updateExpensesList();
+      }
+    }
+  });
 
-    // Actualizar lista de ingresos
-    function updateIncomesList() {
-        const incomesList = document.getElementById('incomesList');
-        incomesList.innerHTML = '';
+  // Handle shared expenses
+  function updateSharedHouseAssignments() {
+    const sharedExpense = document.getElementById('sharedExpense');
+    const houseAssignment = document.getElementById('houseAssignment');
+    const sharedHouseAssignments = document.getElementById('sharedHouseAssignments');
+    const sharedHousesList = document.getElementById('sharedHousesList');
 
-        incomes.forEach((inc, index) => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td class="p-2">${inc.date}</td>
-                <td class="p-2">${inc.description}</td>
-                <td class="p-2">${formatter.format(inc.amount)}</td>
-                <td class="p-2">
-                    <button class="bg-blue-500 text-white p-1 rounded hover:bg-blue-600 edit-income" data-index="${index}">Editar</button>
-                    <button class="bg-red-500 text-white p-1 rounded hover:bg-red-600 delete-income" data-index="${index}">Eliminar</button>
-                </td>
-            `;
-            incomesList.appendChild(row);
-        });
+    if (sharedExpense.checked) {
+      houseAssignment.classList.add('hidden');
+      sharedHouseAssignments.classList.remove('hidden');
+      sharedHousesList.innerHTML = '';
+      houses.forEach(house => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center mb-2';
+        div.innerHTML = `
+          <span class="mr-2">${house}</span>
+          <input type="text" class="p-1 border rounded w-24" data-house="${house}" data-value="0" oninput="formatInput(this)" placeholder="Valor">
+        `;
+        sharedHousesList.appendChild(div);
+      });
+    } else {
+      houseAssignment.classList.remove('hidden');
+      sharedHouseAssignments.classList.add('hidden');
+    }
+  }
 
-        // Asignar event listeners después de renderizar, evitando duplicados
-        const editButtons = incomesList.querySelectorAll('.edit-income');
-        const deleteButtons = incomesList.querySelectorAll('.delete-income');
+  document.getElementById('sharedExpense').addEventListener('change', updateSharedHouseAssignments);
 
-        editButtons.forEach(button => {
-            const newButton = button.cloneNode(true);
-            button.parentNode.replaceChild(newButton, button);
-            newButton.addEventListener('click', () => {
-                const index = parseInt(newButton.dataset.index);
-                const income = incomes[index];
-                const editModal = document.getElementById('editModal');
-                const editDescription = document.getElementById('editDescription');
-                const editAmount = document.getElementById('editAmount');
-                const editDate = document.getElementById('editDate');
-                const editHouseSection = document.getElementById('editHouseSection');
+  // Register expense
+  document.getElementById('registerExpense').addEventListener('click', () => {
+    const description = document.getElementById('expenseDescription').value.trim();
+    const date = document.getElementById('expenseDate').value;
+    const shared = document.getElementById('sharedExpense').checked;
 
-                document.getElementById('editModalTitle').textContent = 'Editar Ingreso';
-                editDescription.value = income.description;
-                editAmount.value = income.amount.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-                editAmount.dataset.value = income.amount;
-                editDate.value = income.date;
-                editHouseSection.classList.add('hidden');
-                window.editIndex = index;
-                window.editType = 'income';
-                editModal.classList.remove('hidden');
-            });
-        });
-
-        deleteButtons.forEach(button => {
-            const newButton = button.cloneNode(true);
-            button.parentNode.replaceChild(newButton, button);
-            newButton.addEventListener('click', () => {
-                const index = parseInt(newButton.dataset.index);
-                if (confirm('¿Está seguro de eliminar este ingreso?')) {
-                    incomes.splice(index, 1);
-                    saveData();
-                    updateDashboard();
-                    updateIncomesList();
-                }
-            });
-        });
+    if (!description || description === '') {
+      alert('Por favor, ingrese una descripción.');
+      return;
+    }
+    if (!date) {
+      alert('Por favor, seleccione una fecha.');
+      return;
     }
 
-    // Generar reporte por casa
-    const generateHouseReportBtn = document.getElementById('generateHouseReport');
-    const generateHouseReportClone = generateHouseReportBtn.cloneNode(true);
-    generateHouseReportBtn.parentNode.replaceChild(generateHouseReportClone, generateHouseReportBtn);
-    generateHouseReportClone.addEventListener('click', () => {
-        const house = document.getElementById('reportHouse').value;
-        if (!house) {
-            alert('Por favor, seleccione una casa.');
-            return;
+    const totalExpensesAmount = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalIncomesAmount = incomes.reduce((sum, inc) => sum + inc.amount, 0);
+    const currentBalance = totalIncomesAmount - totalExpensesAmount;
+
+    if (shared) {
+      const sharedHousesList = document.getElementById('sharedHousesList');
+      const houseInputs = sharedHousesList.getElementsByTagName('input');
+      let totalAmount = 0;
+      for (let input of houseInputs) {
+        const amount = parseInt(input.dataset.value) || 0;
+        totalAmount += amount;
+        if (amount > 0) {
+          expenses.push({ description, amount, date, house: input.dataset.house });
         }
-        const houseExpenses = expenses.filter(exp => exp.house === house);
-        const totalExpensesAmount = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-        document.getElementById('reportContent').innerHTML = `
-            <div id="houseReportContent">
-                <h3 class="text-2xl font-semibold mb-4">Reporte por Casa</h3>
-                <p class="text-lg mb-2"><strong>Casa:</strong> ${house}</p>
-                <p class="text-lg mb-4"><strong>Total Gastos:</strong> ${formatter.format(totalExpensesAmount)}</p>
-                <h4 class="text-xl font-medium mb-2">Detalles de Gastos</h4>
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-gray-200">
-                            <th class="p-3 border">Fecha</th>
-                            <th class="p-3 border">Descripción</th>
-                            <th class="p-3 border">Valor</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${houseExpenses.map(exp => `
-                            <tr>
-                                <td class="p-3 border">${exp.date}</td>
-                                <td class="p-3 border">${exp.description}</td>
-                                <td class="p-3 border">${formatter.format(exp.amount)}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
-    });
-
-    // Generar reporte consolidado
-    const generateConsolidatedReportBtn = document.getElementById('generateConsolidatedReport');
-    const generateConsolidatedReportClone = generateConsolidatedReportBtn.cloneNode(true);
-    generateConsolidatedReportBtn.parentNode.replaceChild(generateConsolidatedReportClone, generateConsolidatedReportBtn);
-    generateConsolidatedReportClone.addEventListener('click', () => {
-        const startDate = new Date(document.getElementById('consolidatedStartDate').value);
-        const endDate = new Date(document.getElementById('consolidatedEndDate').value);
-        if (!startDate || !endDate) {
-            alert('Por favor, seleccione un período válido.');
-            return;
-        }
-        const filteredExpenses = expenses.filter(exp => {
-            const expDate = new Date(exp.date);
-            return expDate >= startDate && expDate <= endDate;
-        });
-        const filteredIncomes = incomes.filter(inc => {
-            const incDate = new Date(inc.date);
-            return incDate >= startDate && incDate <= endDate;
-        });
-        const totalExpensesAmount = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-        const totalIncomesAmount = filteredIncomes.reduce((sum, inc) => sum + inc.amount, 0);
-        const balance = totalIncomesAmount - totalExpensesAmount;
-
-        document.getElementById('reportContent').innerHTML = `
-            <div id="consolidatedReportContent">
-                <h3 class="text-2xl font-semibold mb-4">Reporte Consolidado</h3>
-                <p class="text-lg mb-4"><strong>Período:</strong> ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
-                <div class="grid grid-cols-3 gap-6 mb-6">
-                    <div class="bg-red-100 p-4 rounded-lg">
-                        <p class="text-xl font-medium">Total Gastos</p>
-                        <p class="text-2xl font-bold">${formatter.format(totalExpensesAmount)}</p>
-                    </div>
-                    <div class="bg-green-100 p-4 rounded-lg">
-                        <p class="text-xl font-medium">Total Ingresos</p>
-                        <p class="text-2xl font-bold">${formatter.format(totalIncomesAmount)}</p>
-                    </div>
-                    <div class="bg-blue-100 p-4 rounded-lg">
-                        <p class="text-xl font-medium">Saldo</p>
-                        <p class="text-2xl font-bold">${formatter.format(balance)}</p>
-                    </div>
-                </div>
-                <h4 class="text-xl font-medium mb-2">Gastos por Casa</h4>
-                <div class="space-y-2">
-                    ${houses.map(house => {
-                        const houseExpenses = filteredExpenses.filter(exp => exp.house === house);
-                        const totalHouseExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-                        return totalHouseExpenses > 0 ? `<p class="text-lg"><strong>${house}:</strong> ${formatter.format(totalHouseExpenses)}</p>` : '';
-                    }).join('')}
-                </div>
-            </div>
-        `;
-    });
-
-    // Generar reporte detallado de ingresos
-    const generateIncomeReportBtn = document.getElementById('generateIncomeReport');
-    const generateIncomeReportClone = generateIncomeReportBtn.cloneNode(true);
-    generateIncomeReportBtn.parentNode.replaceChild(generateIncomeReportClone, generateIncomeReportBtn);
-    generateIncomeReportClone.addEventListener('click', () => {
-        const startDate = new Date(document.getElementById('incomeStartDate').value);
-        const endDate = new Date(document.getElementById('incomeEndDate').value);
-        if (!startDate || !endDate) {
-            alert('Por favor, seleccione un período válido.');
-            return;
-        }
-        const filteredIncomes = incomes.filter(inc => {
-            const incDate = new Date(inc.date);
-            return incDate >= startDate && incDate <= endDate;
-        });
-        const totalIncomesAmount = filteredIncomes.reduce((sum, inc) => sum + inc.amount, 0);
-
-        document.getElementById('reportContent').innerHTML = `
-            <div id="incomeReportContent">
-                <h3 class="text-2xl font-semibold mb-4">Reporte Detallado de Ingresos</h3>
-                <p class="text-lg mb-2"><strong>Período:</strong> ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
-                <p class="text-lg mb-4"><strong>Total Ingresos:</strong> ${formatter.format(totalIncomesAmount)}</p>
-                <h4 class="text-xl font-medium mb-2">Detalles de Ingresos</h4>
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-gray-200">
-                            <th class="p-3 border">Fecha</th>
-                            <th class="p-3 border">Descripción</th>
-                            <th class="p-3 border">Valor</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${filteredIncomes.map(inc => `
-                            <tr>
-                                <td class="p-3 border">${inc.date}</td>
-                                <td class="p-3 border">${inc.description}</td>
-                                <td class="p-3 border">${formatter.format(inc.amount)}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
-    });
-
-    // Exportar a PDF
-    const exportPdfBtn = document.getElementById('exportPdf');
-    const exportPdfClone = exportPdfBtn.cloneNode(true);
-    exportPdfBtn.parentNode.replaceChild(exportPdfClone, exportPdfBtn);
-    exportPdfClone.addEventListener('click', () => {
-        const doc = new jsPDF();
-        const currentDate = new Date().toLocaleString('es-CO', { dateStyle: 'full', timeStyle: 'short' });
-        let yPos = 20;
-
-        doc.setFontSize(18);
-        doc.text('Sistema de Gestión de Casas', 20, yPos);
-        yPos += 10;
-        doc.setFontSize(10);
-        doc.text(`Fecha de Generación: ${currentDate}`, 20, yPos);
-        yPos += 10;
-        doc.line(20, yPos, 190, yPos);
-        yPos += 10;
-
-        const houseReport = document.getElementById('houseReportContent');
-        const consolidatedReport = document.getElementById('consolidatedReportContent');
-        const incomeReport = document.getElementById('incomeReportContent');
-
-        if (houseReport) {
-            const house = document.getElementById('reportHouse').value;
-            const houseExpenses = expenses.filter(exp => exp.house === house);
-            const totalExpensesAmount = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-
-            doc.setFontSize(14);
-            doc.text('Reporte por Casa', 20, yPos);
-            yPos += 10;
-            doc.setFontSize(12);
-            doc.text(`Casa: ${house}`, 20, yPos);
-            yPos += 10;
-            doc.text(`Total Gastos: ${formatter.format(totalExpensesAmount)}`, 20, yPos);
-            yPos += 15;
-            doc.setFontSize(12);
-            doc.text('Detalles de Gastos:', 20, yPos);
-            yPos += 10;
-
-            doc.autoTable({
-                startY: yPos,
-                head: [['Fecha', 'Descripción', 'Valor']],
-                body: houseExpenses.map(exp => [exp.date, exp.description, formatter.format(exp.amount)]),
-                theme: 'grid',
-                styles: { fontSize: 10, cellPadding: 2 },
-                headStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: 'bold' }
-            });
-            yPos = doc.lastAutoTable.finalY + 10;
-
-            doc.save('reporte-por-casa.pdf');
-        } else if (consolidatedReport) {
-            const startDate = new Date(document.getElementById('consolidatedStartDate').value);
-            const endDate = new Date(document.getElementById('consolidatedEndDate').value);
-            const filteredExpenses = expenses.filter(exp => {
-                const expDate = new Date(exp.date);
-                return expDate >= startDate && expDate <= endDate;
-            });
-            const filteredIncomes = incomes.filter(inc => {
-                const incDate = new Date(inc.date);
-                return incDate >= startDate && incDate <= endDate;
-            });
-            const totalExpensesAmount = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-            const totalIncomesAmount = filteredIncomes.reduce((sum, inc) => sum + inc.amount, 0);
-            const balance = totalIncomesAmount - totalExpensesAmount;
-
-            doc.setFontSize(14);
-            doc.text('Reporte Consolidado', 20, yPos);
-            yPos += 10;
-            doc.setFontSize(12);
-            doc.text(`Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`, 20, yPos);
-            yPos += 15;
-            doc.text(`Total Gastos: ${formatter.format(totalExpensesAmount)}`, 20, yPos);
-            yPos += 10;
-            doc.text(`Total Ingresos: ${formatter.format(totalIncomesAmount)}`, 20, yPos);
-            yPos += 10;
-            doc.text(`Saldo: ${formatter.format(balance)}`, 20, yPos);
-            yPos += 15;
-            doc.text('Gastos por Casa:', 20, yPos);
-            yPos += 10;
-
-            const houseExpensesData = houses.map(house => {
-                const houseExpenses = filteredExpenses.filter(exp => exp.house === house);
-                const totalHouseExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-                return totalHouseExpenses > 0 ? [house, formatter.format(totalHouseExpenses)] : null;
-            }).filter(item => item !== null);
-
-            doc.autoTable({
-                startY: yPos,
-                head: [['Casa', 'Total Gastos']],
-                body: houseExpensesData,
-                theme: 'grid',
-                styles: { fontSize: 10, cellPadding: 2 },
-                headStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: 'bold' }
-            });
-            yPos = doc.lastAutoTable.finalY + 10;
-
-            doc.save('reporte-consolidado.pdf');
-        } else if (incomeReport) {
-            const startDate = new Date(document.getElementById('incomeStartDate').value);
-            const endDate = new Date(document.getElementById('incomeEndDate').value);
-            const filteredIncomes = incomes.filter(inc => {
-                const incDate = new Date(inc.date);
-                return incDate >= startDate && incDate <= endDate;
-            });
-            const totalIncomesAmount = filteredIncomes.reduce((sum, inc) => sum + inc.amount, 0);
-
-            doc.setFontSize(14);
-            doc.text('Reporte Detallado de Ingresos', 20, yPos);
-            yPos += 10;
-            doc.setFontSize(12);
-            doc.text(`Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`, 20, yPos);
-            yPos += 10;
-            doc.text(`Total Ingresos: ${formatter.format(totalIncomesAmount)}`, 20, yPos);
-            yPos += 15;
-            doc.text('Detalles de Ingresos:', 20, yPos);
-            yPos += 10;
-
-            doc.autoTable({
-                startY: yPos,
-                head: [['Fecha', 'Descripción', 'Valor']],
-                body: filteredIncomes.map(inc => [inc.date, inc.description, formatter.format(inc.amount)]),
-                theme: 'grid',
-                styles: { fontSize: 10, cellPadding: 2 },
-                headStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: 'bold' }
-            });
-            yPos = doc.lastAutoTable.finalY + 10;
-
-            doc.save('reporte-ingresos.pdf');
-        } else {
-            alert('Por favor, genere un reporte antes de exportar a PDF.');
-        }
-    });
-
-    // Exportar detallado de gastos a PDF
-    const exportDetailPdfBtn = document.getElementById('exportDetailPdf');
-    const exportDetailPdfClone = exportDetailPdfBtn.cloneNode(true);
-    exportDetailPdfBtn.parentNode.replaceChild(exportDetailPdfClone, exportDetailPdfBtn);
-    exportDetailPdfClone.addEventListener('click', () => {
-        const houseExpensesDetail = document.getElementById('houseExpensesDetail');
-        if (houseExpensesDetail.classList.contains('hidden')) {
-            alert('Por favor, seleccione una casa para ver el detallado antes de exportar.');
-            return;
-        }
-
-        const house = document.getElementById('houseExpensesTitle').textContent.split(' - Casa: ')[1];
-        const houseExpenses = expenses.filter(exp => exp.house === house);
-        const totalExpensesAmount = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-
-        const doc = new jsPDF();
-        const currentDate = new Date().toLocaleString('es-CO', { dateStyle: 'full', timeStyle: 'short' });
-        let yPos = 20;
-
-        doc.setFontSize(18);
-        doc.text('Sistema de Gestión de Casas', 20, yPos);
-        yPos += 10;
-        doc.setFontSize(10);
-        doc.text(`Fecha de Generación: ${currentDate}`, 20, yPos);
-        yPos += 10;
-        doc.line(20, yPos, 190, yPos);
-        yPos += 10;
-
-        doc.setFontSize(14);
-        doc.text(`Detallado de Gastos - Casa: ${house}`, 20, yPos);
-        yPos += 10;
-        doc.setFontSize(12);
-        doc.text(`Total Gastos: ${formatter.format(totalExpensesAmount)}`, 20, yPos);
-        yPos += 15;
-        doc.text('Detalles:', 20, yPos);
-        yPos += 10;
-
-        doc.autoTable({
-            startY: yPos,
-            head: [['Fecha', 'Descripción', 'Valor']],
-            body: houseExpenses.map(exp => [exp.date, exp.description, formatter.format(exp.amount)]),
-            theme: 'grid',
-            styles: { fontSize: 10, cellPadding: 2 },
-            headStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: 'bold' }
-        });
-        yPos = doc.lastAutoTable.finalY + 10;
-
-        doc.save(`detallado-gastos-${house}.pdf`);
-    });
-
-    // Exportar detallado de gastos a Excel
-    const exportDetailExcelBtn = document.getElementById('exportDetailExcel');
-    const exportDetailExcelClone = exportDetailExcelBtn.cloneNode(true);
-    exportDetailExcelBtn.parentNode.replaceChild(exportDetailExcelClone, exportDetailExcelBtn);
-    exportDetailExcelClone.addEventListener('click', () => {
-        const houseExpensesDetail = document.getElementById('houseExpensesDetail');
-        if (houseExpensesDetail.classList.contains('hidden')) {
-            alert('Por favor, seleccione una casa para ver el detallado antes de exportar.');
-            return;
-        }
-
-        const house = document.getElementById('houseExpensesTitle').textContent.split(' - Casa: ')[1];
-        const houseExpenses = expenses.filter(exp => exp.house === house);
-
-        const ws = utils.book_new();
-        applyExcelStyles(ws, houseExpenses, house);
-        const wb = { Sheets: { 'Detallado': ws }, SheetNames: ['Detallado'] };
-        const excelBuffer = write(wb, { bookType: 'xlsx', type: 'array' });
-        const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        const url = URL.createObjectURL(data);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `detallado-gastos-${house}.xlsx`;
-        a.click();
-        URL.revokeObjectURL(url);
-    });
-
-    // Exportar todos los gastos a Excel
-    const exportExcelBtn = document.getElementById('exportExcelBtn');
-    const exportExcelClone = exportExcelBtn.cloneNode(true);
-    exportExcelBtn.parentNode.replaceChild(exportExcelClone, exportExcelBtn);
-    exportExcelClone.addEventListener('click', () => {
-        const ws = utils.book_new();
-        const currentDate = new Date().toLocaleString('es-CO', { dateStyle: 'full', timeStyle: 'short' });
-
-        ws['A1'] = { v: 'Sistema de Gestión de Casas', t: 's' };
-        ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
-        ws['A1'].s = { font: { name: 'Arial', sz: 14, bold: true }, alignment: { horizontal: 'center' } };
-
-        ws['A2'] = { v: `Fecha de Generación: ${currentDate}`, t: 's' };
-        ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: 3 } });
-        ws['A2'].s = { font: { name: 'Arial', sz: 10 }, alignment: { horizontal: 'center' } };
-
-        ws['A3'] = { v: '', t: 's' };
-        ws['!merges'].push({ s: { r: 2, c: 0 }, e: { r: 2, c: 3 } });
-
-        ws['A4'] = { v: 'Reporte de Gastos', t: 's' };
-        ws['!merges'].push({ s: { r: 3, c: 0 }, e: { r: 3, c: 3 } });
-        ws['A4'].s = { font: { name: 'Arial', sz: 12, bold: true }, alignment: { horizontal: 'center' }, fill: { fgColor: { rgb: 'E6F0FA' } } };
-
-        ws['A5'] = { v: '', t: 's' };
-        ws['!merges'].push({ s: { r: 4, c: 0 }, e: { r: 4, c: 3 } });
-
-        ws['A6'] = { v: 'Fecha', t: 's', s: { font: { name: 'Arial', bold: true }, fill: { fgColor: { rgb: 'B3CDE0' } }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
-        ws['B6'] = { v: 'Descripción', t: 's', s: { font: { name: 'Arial', bold: true }, fill: { fgColor: { rgb: 'B3CDE0' } }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
-        ws['C6'] = { v: 'Casa', t: 's', s: { font: { name: 'Arial', bold: true }, fill: { fgColor: { rgb: 'B3CDE0' } }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
-        ws['D6'] = { v: 'Valor', t: 's', s: { font: { name: 'Arial', bold: true }, fill: { fgColor: { rgb: 'B3CDE0' } }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
-
-        for (let i = 0; i < expenses.length; i++) {
-            const row = i + 7;
-            ws[`A${row}`] = { v: expenses[i].date, t: 's', s: { font: { name: 'Arial' }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
-            ws[`B${row}`] = { v: expenses[i].description, t: 's', s: { font: { name: 'Arial' }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
-            ws[`C${row}`] = { v: expenses[i].house || 'Compartido', t: 's', s: { font: { name: 'Arial' }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
-            ws[`D${row}`] = { v: expenses[i].amount, t: 'n', s: { font: { name: 'Arial' }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }, numFmt: '$#,##0' } };
-        }
-
-        const totalRow = expenses.length + 7;
-        const totalAmount = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-        ws[`A${totalRow}`] = { v: 'Total', t: 's', s: { font: { name: 'Arial', bold: true }, fill: { fgColor: { rgb: 'D3D3D3' } }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
-        ws[`B${totalRow}`] = { v: '', t: 's', s: { border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
-        ws[`C${totalRow}`] = { v: '', t: 's', s: { border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
-        ws[`D${totalRow}`] = { v: totalAmount, t: 'n', s: { font: { name: 'Arial', bold: true }, fill: { fgColor: { rgb: 'D3D3D3' } }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }, numFmt: '$#,##0' } };
-        ws['!merges'].push({ s: { r: totalRow - 1, c: 0 }, e: { r: totalRow - 1, c: 2 } });
-
-        ws[`A${totalRow + 1}`] = { v: '', t: 's' };
-        ws['!merges'].push({ s: { r: totalRow, c: 0 }, e: { r: totalRow, c: 3 } });
-
-        ws[`A${totalRow + 2}`] = { v: 'Reporte generado por el Sistema de Gestión de Casas', t: 's' };
-        ws['!merges'].push({ s: { r: totalRow + 1, c: 0 }, e: { r: totalRow + 1, c: 3 } });
-        ws[`A${totalRow + 2}`].s = { font: { name: 'Arial', sz: 10, italic: true }, alignment: { horizontal: 'center' } };
-
-        ws['!cols'] = [
-            { wch: 10 },
-            { wch: 30 },
-            { wch: 15 },
-            { wch: 15 }
-        ];
-
-        ws['!freeze'] = { xSplit: 0, ySplit: 6 };
-
-        const wb = { Sheets: { 'Gastos': ws }, SheetNames: ['Gastos'] };
-        const excelBuffer = write(wb, { bookType: 'xlsx', type: 'array' });
-        const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        const url = URL.createObjectURL(data);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'reporte-gastos.xlsx';
-        a.click();
-        URL.revokeObjectURL(url);
-    });
-
-    // Función para aplicar estilos al Excel (detallado por casa)
-    function applyExcelStyles(ws, houseExpenses, house) {
-        const currentDate = new Date().toLocaleString('es-CO', { dateStyle: 'full', timeStyle: 'short' });
-
-        ws['A1'] = { v: 'Sistema de Gestión de Casas', t: 's' };
-        ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
-        ws['A1'].s = { font: { name: 'Arial', sz: 14, bold: true }, alignment: { horizontal: 'center' } };
-
-        ws['A2'] = { v: `Fecha de Generación: ${currentDate}`, t: 's' };
-        ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: 2 } });
-        ws['A2'].s = { font: { name: 'Arial', sz: 10 }, alignment: { horizontal: 'center' } };
-
-        ws['A3'] = { v: '', t: 's' };
-        ws['!merges'].push({ s: { r: 2, c: 0 }, e: { r: 2, c: 2 } });
-
-        ws['A4'] = { v: `Detallado de Gastos - Casa: ${house}`, t: 's' };
-        ws['!merges'].push({ s: { r: 3, c: 0 }, e: { r: 3, c: 2 } });
-        ws['A4'].s = { font: { name: 'Arial', sz: 12, bold: true }, alignment: { horizontal: 'center' }, fill: { fgColor: { rgb: 'E6F0FA' } } };
-
-        ws['A5'] = { v: '', t: 's' };
-        ws['!merges'].push({ s: { r: 4, c: 0 }, e: { r: 4, c: 2 } });
-
-        ws['A6'] = { v: 'Fecha', t: 's', s: { font: { name: 'Arial', bold: true }, fill: { fgColor: { rgb: 'B3CDE0' } }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
-        ws['B6'] = { v: 'Descripción', t: 's', s: { font: { name: 'Arial', bold: true }, fill: { fgColor: { rgb: 'B3CDE0' } }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
-        ws['C6'] = { v: 'Valor', t: 's', s: { font: { name: 'Arial', bold: true }, fill: { fgColor: { rgb: 'B3CDE0' } }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
-
-        for (let i = 0; i < houseExpenses.length; i++) {
-            const row = i + 7;
-            ws[`A${row}`] = { v: houseExpenses[i].date, t: 's', s: { font: { name: 'Arial' }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
-            ws[`B${row}`] = { v: houseExpenses[i].description, t: 's', s: { font: { name: 'Arial' }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
-            ws[`C${row}`] = { v: houseExpenses[i].amount, t: 'n', s: { font: { name: 'Arial' }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }, numFmt: '$#,##0' } };
-        }
-
-        const totalRow = houseExpenses.length + 7;
-        const totalAmount = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-        ws[`A${totalRow}`] = { v: 'Total', t: 's', s: { font: { name: 'Arial', bold: true }, fill: { fgColor: { rgb: 'D3D3D3' } }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
-        ws[`B${totalRow}`] = { v: '', t: 's', s: { border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
-        ws[`C${totalRow}`] = { v: totalAmount, t: 'n', s: { font: { name: 'Arial', bold: true }, fill: { fgColor: { rgb: 'D3D3D3' } }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }, numFmt: '$#,##0' } };
-        ws['!merges'].push({ s: { r: totalRow - 1, c: 0 }, e: { r: totalRow - 1, c: 1 } });
-
-        ws[`A${totalRow + 1}`] = { v: '', t: 's' };
-        ws['!merges'].push({ s: { r: totalRow, c: 0 }, e: { r: totalRow, c: 2 } });
-
-        ws[`A${totalRow + 2}`] = { v: 'Reporte generado por el Sistema de Gestión de Casas', t: 's' };
-        ws['!merges'].push({ s: { r: totalRow + 1, c: 0 }, e: { r: totalRow + 1, c: 2 } });
-        ws[`A${totalRow + 2}`].s = { font: { name: 'Arial', sz: 10, italic: true }, alignment: { horizontal: 'center' } };
-
-        ws['!cols'] = [
-            { wch: 10 },
-            { wch: 30 },
-            { wch: 15 }
-        ];
-
-        ws['!freeze'] = { xSplit: 0, ySplit: 6 };
+      }
+      if (totalAmount === 0) {
+        alert('Por favor, ingrese al menos un valor para alguna casa.');
+        return;
+      }
+      if (currentBalance <= 0) {
+        alert('Advertencia: El saldo actual es insuficiente o cero. El gasto se registrará, pero revise su situación financiera.');
+      }
+    } else {
+      const house = document.getElementById('expenseHouse').value;
+      const amount = parseInt(document.getElementById('expenseAmount').dataset.value) || 0;
+      if (amount <= 0) {
+        alert('Por favor, ingrese un valor válido mayor a 0.');
+        return;
+      }
+      if (!house) {
+        alert('Por favor, seleccione una casa.');
+        return;
+      }
+      if (currentBalance <= 0) {
+        alert('Advertencia: El saldo actual es insuficiente o cero. El gasto se registrará, pero revise su situación financiera.');
+      }
+      expenses.push({ description, amount, date, house });
     }
 
-    // Backup
-    const backupBtn = document.getElementById('backupBtn');
-    const backupClone = backupBtn.cloneNode(true);
-    backupBtn.parentNode.replaceChild(backupClone, backupBtn);
-    backupClone.addEventListener('click', () => {
-        const data = { houses, expenses, incomes };
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'backup-casas.json';
-        a.click();
-        URL.revokeObjectURL(url);
-        saveToDrive();
+    saveData();
+    updateDashboard();
+    updateExpensesList();
+    document.getElementById('expenseDescription').value = '';
+    document.getElementById('expenseAmount').value = '';
+    document.getElementById('expenseAmount').dataset.value = '0';
+    document.getElementById('expenseDate').value = '2025-06-02';
+    document.getElementById('sharedExpense').checked = false;
+    updateSharedHouseAssignments();
+  });
+
+  // Update expenses list
+  function updateExpensesList() {
+    const expensesList = document.getElementById('expensesList');
+    const filterHouse = document.getElementById('filterHouses').value;
+    expensesList.innerHTML = '';
+    let filteredExpenses = expenses;
+    if (filterHouse !== 'all') {
+      filteredExpenses = expenses.filter(exp => exp.house === filterHouse);
+    }
+    filteredExpenses.forEach((exp, index) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td class="p-2">${exp.date}</td>
+        <td class="p-2">${exp.description}</td>
+        <td class="p-2">${exp.house || 'Compartido'}</td>
+        <td class="p-2">${formatter.format(exp.amount)}</td>
+        <td class="p-2">
+          <button class="bg-blue-500 text-white p-1 rounded hover:bg-blue-600 edit-expense" data-index="${index}">Editar</button>
+          <button class="bg-red-500 text-white p-1 rounded hover:bg-red-600 delete-expense" data-index="${index}">Eliminar</button>
+        </td>
+      `;
+      expensesList.appendChild(row);
     });
 
-    // Importar Backup
-    const importBtn = document.getElementById('importBtn');
-    const importClone = importBtn.cloneNode(true);
-    importBtn.parentNode.replaceChild(importClone, importBtn);
-    importClone.addEventListener('click', () => {
-        document.getElementById('importBackup').click();
+    expensesList.querySelectorAll('.edit-expense').forEach(button => {
+      button.addEventListener('click', () => {
+        const index = parseInt(button.dataset.index);
+        const expense = expenses[index];
+        const editModal = document.getElementById('editModal');
+        const editDescription = document.getElementById('editDescription');
+        const editAmount = document.getElementById('editAmount');
+        const editDate = document.getElementById('editDate');
+        const editHouseSection = document.getElementById('editHouseSection');
+        const editHouse = document.getElementById('editHouse');
+
+        document.getElementById('editModalTitle').textContent = 'Editar Gasto';
+        editDescription.value = expense.description;
+        editAmount.value = expense.amount.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        editAmount.dataset.value = expense.amount;
+        editDate.value = expense.date;
+        editHouseSection.classList.remove('hidden');
+        updateHouseSelects();
+        editHouse.value = expense.house || '';
+        window.editIndex = index;
+        window.editType = 'expense';
+        editModal.classList.remove('hidden');
+      });
     });
 
-    const importBackupInput = document.getElementById('importBackup');
-    const importBackupClone = importBackupInput.cloneNode(true);
-    importBackupInput.parentNode.replaceChild(importBackupClone, importBackupInput);
-    importBackupClone.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    expensesList.querySelectorAll('.delete-expense').forEach(button => {
+      button.addEventListener('click', () => {
+        const index = parseInt(button.dataset.index);
+        if (confirm('¿Está seguro de eliminar este gasto?')) {
+          expenses.splice(index, 1);
+          saveData();
+          updateDashboard();
+          updateExpensesList();
+        }
+      });
+    });
+  }
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const data = JSON.parse(event.target.result);
-                houses = data.houses || [];
-                expenses = data.expenses || [];
-                incomes = data.incomes || [];
-                saveData();
-                updateHouseSelects();
-                updateDashboard();
-                updateExpensesList();
-                updateIncomesList();
-                alert('Backup importado correctamente.');
-            } catch (err) {
-                alert('Error al importar el backup. Asegúrese de que el archivo sea válido.');
-            }
-        };
-        reader.readAsText(file);
+  // Filter expenses
+  document.getElementById('filterHouses').addEventListener('change', updateExpensesList);
+
+  // Register income
+  document.getElementById('registerIncome').addEventListener('click', () => {
+    const description = document.getElementById('incomeDescription').value.trim();
+    const amount = parseInt(document.getElementById('incomeAmount').dataset.value) || 0;
+    const date = document.getElementById('incomeDate').value;
+
+    if (!description || description === '') {
+      alert('Por favor, ingrese una descripción.');
+      return;
+    }
+    if (amount <= 0) {
+      alert('Por favor, ingrese un valor válido mayor a 0.');
+      return;
+    }
+    if (!date) {
+      alert('Por favor, seleccione una fecha.');
+      return;
+    }
+
+    incomes.push({ description, amount, date });
+    saveData();
+    updateDashboard();
+    updateIncomesList();
+    document.getElementById('incomeDescription').value = '';
+    document.getElementById('incomeAmount').value = '';
+    document.getElementById('incomeAmount').dataset.value = '0';
+    document.getElementById('incomeDate').value = '2025-06-02';
+  });
+
+  // Update incomes list
+  function updateIncomesList() {
+    const incomesList = document.getElementById('incomesList');
+    incomesList.innerHTML = '';
+    incomes.forEach((inc, index) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td class="p-2">${inc.date}</td>
+        <td class="p-2">${inc.description}</td>
+        <td class="p-2">${formatter.format(inc.amount)}</td>
+        <td class="p-2">
+          <button class="bg-blue-500 text-white p-1 rounded hover:bg-blue-600 edit-income" data-index="${index}">Editar</button>
+          <button class="bg-red-500 text-white p-1 rounded hover:bg-red-600 delete-income" data-index="${index}">Eliminar</button>
+        </td>
+      `;
+      incomesList.appendChild(row);
     });
 
-    // Guardar cambios desde el modal de edición
-    const saveEditBtn = document.getElementById('saveEdit');
-    const saveEditClone = saveEditBtn.cloneNode(true);
-    saveEditBtn.parentNode.replaceChild(saveEditClone, saveEditBtn);
-    saveEditClone.addEventListener('click', () => {
-        const description = document.getElementById('editDescription').value.trim();
-        const amount = parseInt(document.getElementById('editAmount').dataset.value) || 0;
-        const date = document.getElementById('editDate').value;
-        const house = document.getElementById('editHouse').value;
+    incomesList.querySelectorAll('.edit-income').forEach(button => {
+      button.addEventListener('click', () => {
+        const index = parseInt(button.dataset.index);
+        const income = incomes[index];
+        const editModal = document.getElementById('editModal');
+        const editDescription = document.getElementById('editDescription');
+        const editAmount = document.getElementById('editAmount');
+        const editDate = document.getElementById('editDate');
+        const editHouseSection = document.getElementById('editHouseSection');
 
-        if (!description || description === '') {
-            alert('Por favor, ingrese una descripción.');
-            return;
-        }
-        if (amount <= 0) {
-            alert('Por favor, ingrese un valor válido mayor a 0.');
-            return;
-        }
-        if (!date) {
-            alert('Por favor, seleccione una fecha.');
-            return;
-        }
+        document.getElementById('editModalTitle').textContent = 'Editar Ingreso';
+        editDescription.value = income.description;
+        editAmount.value = income.amount.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        editAmount.dataset.value = income.amount;
+        editDate.value = income.date;
+        editHouseSection.classList.add('hidden');
+        window.editIndex = index;
+        window.editType = 'income';
+        editModal.classList.remove('hidden');
+      });
+    });
 
-        if (window.editType === 'expense') {
-            if (!house) {
-                alert('Por favor, seleccione una casa.');
-                return;
-            }
-            expenses[window.editIndex] = { description, amount, date, house };
-        } else if (window.editType === 'income') {
-            incomes[window.editIndex] = { description, amount, date };
+    incomesList.querySelectorAll('.delete-income').forEach(button => {
+      button.addEventListener('click', () => {
+        const index = parseInt(button.dataset.index);
+        if (confirm('¿Está seguro de eliminar este ingreso?')) {
+          incomes.splice(index, 1);
+          saveData();
+          updateDashboard();
+          updateIncomesList();
         }
+      });
+    });
+  }
 
+  // Generate house report
+  document.getElementById('generateHouseReport').addEventListener('click', () => {
+    const house = document.getElementById('reportHouse').value;
+    if (!house) {
+      alert('Por favor, seleccione una casa.');
+      return;
+    }
+    const houseExpenses = expenses.filter(exp => exp.house === house);
+    const totalExpensesAmount = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    document.getElementById('reportContent').innerHTML = `
+      <div id="houseReportContent">
+        <h3 class="text-2xl font-semibold mb-4">Reporte por Casa</h3>
+        <p class="text-lg mb-2"><strong>Casa:</strong> ${house}</p>
+        <p class="text-lg mb-4"><strong>Total Gastos:</strong> ${formatter.format(totalExpensesAmount)}</p>
+        <h4 class="text-xl font-medium mb-2">Detalles de Gastos</h4>
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-gray-200">
+              <th class="p-3 border">Fecha</th>
+              <th class="p-3 border">Descripción</th>
+              <th class="p-3 border">Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${houseExpenses.map(exp => `
+              <tr>
+                <td class="p-3 border">${exp.date}</td>
+                <td class="p-3 border">${exp.description}</td>
+                <td class="p-3 border">${formatter.format(exp.amount)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  });
+
+  // Generate consolidated report
+  document.getElementById('generateConsolidatedReport').addEventListener('click', () => {
+    const startDate = new Date(document.getElementById('consolidatedStartDate').value);
+    const endDate = new Date(document.getElementById('consolidatedEndDate').value);
+    if (!startDate || !endDate) {
+      alert('Por favor, seleccione un período válido.');
+      return;
+    }
+    const filteredExpenses = expenses.filter(exp => {
+      const expDate = new Date(exp.date);
+      return expDate >= startDate && expDate <= endDate;
+    });
+    const filteredIncomes = incomes.filter(inc => {
+      const incDate = new Date(inc.date);
+      return incDate >= startDate && incDate <= endDate;
+    });
+    const totalExpensesAmount = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalIncomesAmount = filteredIncomes.reduce((sum, inc) => sum + inc.amount, 0);
+    const balance = totalIncomesAmount - totalExpensesAmount;
+
+    document.getElementById('reportContent').innerHTML = `
+      <div id="consolidatedReportContent">
+        <h3 class="text-2xl font-semibold mb-4">Reporte Consolidado</h3>
+        <p class="text-lg mb-4"><strong>Período:</strong> ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
+        <div class="grid grid-cols-3 gap-6 mb-6">
+          <div class="bg-red-100 p-4 rounded-lg">
+            <p class="text-xl font-medium">Total Gastos</p>
+            <p class="text-2xl font-bold">${formatter.format(totalExpensesAmount)}</p>
+          </div>
+          <div class="bg-green-100 p-4 rounded-lg">
+            <p class="text-xl font-medium">Total Ingresos</p>
+            <p class="text-2xl font-bold">${formatter.format(totalIncomesAmount)}</p>
+          </div>
+          <div class="bg-blue-100 p-4 rounded-lg">
+            <p class="text-xl font-medium">Saldo</p>
+            <p class="text-2xl font-bold">${formatter.format(balance)}</p>
+          </div>
+        </div>
+        <h4 class="text-xl font-medium mb-2">Gastos por Casa</h4>
+        <div class="space-y-2">
+          ${houses.map(house => {
+            const houseExpenses = filteredExpenses.filter(exp => exp.house === house);
+            const totalHouseExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+            return totalHouseExpenses > 0 ? `<p class="text-lg"><strong>${house}:</strong> ${formatter.format(totalHouseExpenses)}</p>` : '';
+          }).join('')}
+        </div>
+      </div>
+    `;
+  });
+
+  // Generate income report
+  document.getElementById('generateIncomeReport').addEventListener('click', () => {
+    const startDate = new Date(document.getElementById('incomeStartDate').value);
+    const endDate = new Date(document.getElementById('incomeEndDate').value);
+    if (!startDate || !endDate) {
+      alert('Por favor, seleccione un período válido.');
+      return;
+    }
+    const filteredIncomes = incomes.filter(inc => {
+      const incDate = new Date(inc.date);
+      return incDate >= startDate && incDate <= endDate;
+    });
+    const totalIncomesAmount = filteredIncomes.reduce((sum, inc) => sum + inc.amount, 0);
+
+    document.getElementById('reportContent').innerHTML = `
+      <div id="incomeReportContent">
+        <h3 class="text-2xl font-semibold mb-4">Reporte Detallado de Ingresos</h3>
+        <p class="text-lg mb-2"><strong>Período:</strong> ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
+        <p class="text-lg mb-4"><strong>Total Ingresos:</strong> ${formatter.format(totalIncomesAmount)}</p>
+        <h4 class="text-xl font-medium mb-2">Detalles de Ingresos</h4>
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-gray-200">
+              <th class="p-3 border">Fecha</th>
+              <th class="p-3 border">Descripción</th>
+              <th class="p-3 border">Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filteredIncomes.map(inc => `
+              <tr>
+                <td class="p-3 border">${inc.date}</td>
+                <td class="p-3 border">${inc.description}</td>
+                <td class="p-3 border">${formatter.format(inc.amount)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  });
+
+  // Export to PDF
+  document.getElementById('exportPdf').addEventListener('click', () => {
+    const doc = new jsPDF();
+    const currentDate = new Date().toLocaleString('es-CO', { dateStyle: 'full', timeStyle: 'short' });
+    let yPos = 20;
+
+    doc.setFontSize(18);
+    doc.text('Sistema de Gestión de Casas', 20, yPos);
+    yPos += 10;
+    doc.setFontSize(10);
+    doc.text(`Fecha de Generación: ${currentDate}`, 20, yPos);
+    yPos += 10;
+    doc.line(20, yPos, 190, yPos);
+    yPos += 10;
+
+    const houseReport = document.getElementById('houseReportContent');
+    const consolidatedReport = document.getElementById('consolidatedReportContent');
+    const incomeReport = document.getElementById('incomeReportContent');
+
+    if (houseReport && !houseReport.classList.contains('hidden')) {
+      const house = document.getElementById('reportHouse').value;
+      const houseExpenses = expenses.filter(exp => exp.house === house);
+      const totalExpensesAmount = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+      doc.setFontSize(14);
+      doc.text('Reporte por Casa', 20, yPos);
+      yPos += 10;
+      doc.setFontSize(12);
+      doc.text(`Casa: ${house}`, 20, yPos);
+      yPos += 10;
+      doc.text(`Total Gastos: ${formatter.format(totalExpensesAmount)}`, 20, yPos);
+      yPos += 15;
+      doc.setFontSize(12);
+      doc.text('Detalles de Gastos:', 20, yPos);
+      yPos += 10;
+
+      doc.autoTable({
+        startY: yPos,
+        head: [['Fecha', 'Descripción', 'Valor']],
+        body: houseExpenses.map(exp => [exp.date, exp.description, formatter.format(exp.amount)]),
+        theme: 'grid',
+        styles: { fontSize: 10, cellPadding: 2 },
+        headStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: 'bold' }
+      });
+      yPos = doc.lastAutoTable.finalY + 10;
+
+      doc.save('reporte-por-casa.pdf');
+    } else if (consolidatedReport && !consolidatedReport.classList.contains('hidden')) {
+      const startDate = new Date(document.getElementById('consolidatedStartDate').value);
+      const endDate = new Date(document.getElementById('consolidatedEndDate').value);
+      const filteredExpenses = expenses.filter(exp => {
+        const expDate = new Date(exp.date);
+        return expDate >= startDate && expDate <= endDate;
+      });
+      const filteredIncomes = incomes.filter(inc => {
+        const incDate = new Date(inc.date);
+        return incDate >= startDate && incDate <= endDate;
+      });
+      const totalExpensesAmount = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+      const totalIncomesAmount = filteredIncomes.reduce((sum, inc) => sum + inc.amount, 0);
+      const balance = totalIncomesAmount - totalExpensesAmount;
+
+      doc.setFontSize(14);
+      doc.text('Reporte Consolidado', 20, yPos);
+      yPos += 10;
+      doc.setFontSize(12);
+      doc.text(`Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`, 20, yPos);
+      yPos += 15;
+      doc.text(`Total Gastos: ${formatter.format(totalExpensesAmount)}`, 20, yPos);
+      yPos += 10;
+      doc.text(`Total Ingresos: ${formatter.format(totalIncomesAmount)}`, 20, yPos);
+      yPos += 10;
+      doc.text(`Saldo: ${formatter.format(balance)}`, 20, yPos);
+      yPos += 15;
+      doc.text('Gastos por Casa:', 20, yPos);
+      yPos += 10;
+
+      const houseExpensesData = houses.map(house => {
+        const houseExpenses = filteredExpenses.filter(exp => exp.house === house);
+        const totalHouseExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+        return totalHouseExpenses > 0 ? [house, formatter.format(totalHouseExpenses)] : null;
+      }).filter(item => item !== null);
+
+      doc.autoTable({
+        startY: yPos,
+        head: [['Casa', 'Total Gastos']],
+        body: houseExpensesData,
+        theme: 'grid',
+        styles: { fontSize: 10, cellPadding: 2 },
+        headStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: 'bold' }
+      });
+      yPos = doc.lastAutoTable.finalY + 10;
+
+      doc.save('reporte-consolidado.pdf');
+    } else if (incomeReport && !incomeReport.classList.contains('hidden')) {
+      const startDate = new Date(document.getElementById('incomeStartDate').value);
+      const endDate = new Date(document.getElementById('incomeEndDate').value);
+      const filteredIncomes = incomes.filter(inc => {
+        const incDate = new Date(inc.date);
+        return incDate >= startDate && incDate <= endDate;
+      });
+      const totalIncomesAmount = filteredIncomes.reduce((sum, inc) => sum + inc.amount, 0);
+
+      doc.setFontSize(14);
+      doc.text('Reporte Detallado de Ingresos', 20, yPos);
+      yPos += 10;
+      doc.setFontSize(12);
+      doc.text(`Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`, 20, yPos);
+      yPos += 10;
+      doc.text(`Total Ingresos: ${formatter.format(totalIncomesAmount)}`, 20, yPos);
+      yPos += 15;
+      doc.text('Detalles de Ingresos:', 20, yPos);
+      yPos += 10;
+
+      doc.autoTable({
+        startY: yPos,
+        head: [['Fecha', 'Descripción', 'Valor']],
+        body: filteredIncomes.map(inc => [inc.date, inc.description, formatter.format(inc.amount)]),
+        theme: 'grid',
+        styles: { fontSize: 10, cellPadding: 2 },
+        headStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: 'bold' }
+      });
+      yPos = doc.lastAutoTable.finalY + 10;
+
+      doc.save('reporte-ingresos.pdf');
+    } else {
+      alert('Por favor, genere un reporte antes de exportar a PDF.');
+    }
+  });
+
+  // Backup
+  document.getElementById('backupBtn').addEventListener('click', () => {
+    const data = { houses, expenses, incomes };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'backup-casas.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Import Backup
+  document.getElementById('importBtn').addEventListener('click', () => {
+    document.getElementById('importBackup').click();
+  });
+
+  document.getElementById('importBackup').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+        houses = data.houses || [];
+        expenses = data.expenses || [];
+        incomes = data.incomes || [];
         saveData();
+        updateHouseSelects();
         updateDashboard();
         updateExpensesList();
         updateIncomesList();
-        document.getElementById('editModal').classList.add('hidden');
-    });
+        alert('Backup importado correctamente.');
+      } catch (err) {
+        alert('Error al importar el backup. Asegúrese de que el archivo sea válido.');
+      }
+    };
+    reader.readAsText(file);
+  });
 
-    // Cancelar edición
-    const cancelEditBtn = document.getElementById('cancelEdit');
-    const cancelEditClone = cancelEditBtn.cloneNode(true);
-    cancelEditBtn.parentNode.replaceChild(cancelEditClone, cancelEditBtn);
-    cancelEditClone.addEventListener('click', () => {
-        document.getElementById('editModal').classList.add('hidden');
-    });
-
-    // Navegación entre secciones
-    document.querySelectorAll('.nav-buttons button').forEach(button => {
-        const sectionId = button.dataset.section;
-        if (sectionId) {
-            const newButton = button.cloneNode(true);
-            button.parentNode.replaceChild(newButton, button);
-            newButton.addEventListener('click', () => {
-                document.querySelectorAll('.section').forEach(section => {
-                    section.classList.add('hidden');
-                });
-                document.getElementById(sectionId).classList.remove('hidden');
-            });
+  // Sync with Google Drive
+  document.getElementById('syncGoogleDrive').addEventListener('click', () => {
+    if (!gapiLoaded) {
+      loadGapi();
+      setTimeout(() => {
+        if (!isSignedIn) {
+          signIn();
+        } else {
+          saveDataToDrive();
+          alert('Data synced with Google Drive.');
         }
+      }, 1000);
+    } else if (!isSignedIn) {
+      signIn();
+    } else {
+      saveDataToDrive();
+      alert('Data synced with Google Drive.');
+    }
+  });
+
+  // Apply Excel styles
+  function applyExcelStyles(ws, houseExpenses, house) {
+    const currentDate = new Date().toLocaleString('es-CO', { dateStyle: 'full', timeStyle: 'short' });
+
+    ws['A1'] = { v: 'Sistema de Gestión de Casas', t: 's' };
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
+    ws['A1'].s = { font: { name: 'Arial', sz: 14, bold: true }, alignment: { horizontal: 'center' } };
+
+    ws['A2'] = { v: `Fecha de Generación: ${currentDate}`, t: 's' };
+    ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: 2 } });
+    ws['A2'].s = { font: { name: 'Arial', sz: 10 }, alignment: { horizontal: 'center' } };
+
+    ws['A3'] = { v: '', t: 's' };
+    ws['!merges'].push({ s: { r: 2, c: 0 }, e: { r: 2, c: 2 } });
+
+    ws['A4'] = { v: `Detallado de Gastos - Casa: ${house}`, t: 's' };
+    ws['!merges'].push({ s: { r: 3, c: 0 }, e: { r: 3, c: 2 } });
+    ws['A4'].s = { font: { name: 'Arial', sz: 12, bold: true }, alignment: { horizontal: 'center' }, fill: { fgColor: { rgb: 'E6F0FA' } } };
+
+    ws['A5'] = { v: '', t: 's' };
+    ws['!merges'].push({ s: { r: 4, c: 0 }, e: { r: 4, c: 2 } });
+
+    ws['A6'] = { v: 'Fecha', t: 's', s: { font: { name: 'Arial', bold: true }, fill: { fgColor: { rgb: 'B3CDE0' } }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
+    ws['B6'] = { v: 'Descripción', t: 's', s: { font: { name: 'Arial', bold: true }, fill: { fgColor: { rgb: 'B3CDE0' } }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
+    ws['C6'] = { v: 'Valor', t: 's', s: { font: { name: 'Arial', bold: true }, fill: { fgColor: { rgb: 'B3CDE0' } }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
+
+    for (let i = 0; i < houseExpenses.length; i++) {
+      const row = i + 7;
+      ws[`A${row}`] = { v: houseExpenses[i].date, t: 's', s: { font: { name: 'Arial' }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
+      ws[`B${row}`] = { v: houseExpenses[i].description, t: 's', s: { font: { name: 'Arial' }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
+      ws[`C${row}`] = { v: houseExpenses[i].amount, t: 'n', s: { font: { name: 'Arial' }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }, numFmt: '$#,##0' } };
+    }
+
+    const totalRow = houseExpenses.length + 7;
+    const totalAmount = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    ws[`A${totalRow}`] = { v: 'Total', t: 's', s: { font: { name: 'Arial', bold: true }, fill: { fgColor: { rgb: 'D3D3D3' } }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
+    ws[`B${totalRow}`] = { v: '', t: 's', s: { border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } } } };
+    ws[`C${totalRow}`] = { v: totalAmount, t: 'n', s: { font: { name: 'Arial', bold: true }, fill: { fgColor: { rgb: 'D3D3D3' } }, border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }, numFmt: '$#,##0' } };
+    ws['!merges'].push({ s: { r: totalRow - 1, c: 0 }, e: { r: totalRow - 1, c: 1 } });
+
+    ws[`A${totalRow + 1}`] = { v: '', t: 's' };
+    ws['!merges'].push({ s: { r: totalRow, c: 0 }, e: { r: totalRow, c: 2 } });
+
+    ws[`A${totalRow + 2}`] = { v: 'Reporte generado por el Sistema de Gestión de Casas', t: 's' };
+    ws['!merges'].push({ s: { r: totalRow + 1, c: 0 }, e: { r: totalRow + 1, c: 2 } });
+    ws[`A${totalRow + 2}`].s = { font: { name: 'Arial', sz: 10, italic: true }, alignment: { horizontal: 'center' } };
+
+    ws['!cols'] = [
+      { wch: 10 },
+      { wch: 30 },
+      { wch: 15 }
+    ];
+
+    ws['!freeze'] = { xSplit: 0, ySplit: 6 };
+  }
+
+  // Export detailed expenses to PDF
+  document.getElementById('exportDetailPdf').addEventListener('click', () => {
+    const houseExpensesDetail = document.getElementById('houseExpensesDetail');
+    if (houseExpensesDetail.classList.contains('hidden')) {
+      alert('Por favor, seleccione una casa para ver el detallado antes de exportar.');
+      return;
+    }
+
+    const house = document.getElementById('houseExpensesTitle').textContent.split(' - Casa: ')[1];
+    const houseExpenses = expenses.filter(exp => exp.house === house);
+    const totalExpensesAmount = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+    const doc = new jsPDF();
+    const currentDate = new Date().toLocaleString('es-CO', { dateStyle: 'full', timeStyle: 'short' });
+    let yPos = 20;
+
+    doc.setFontSize(18);
+    doc.text('Sistema de Gestión de Casas', 20, yPos);
+    yPos += 10;
+    doc.setFontSize(10);
+    doc.text(`Fecha de Generación: ${currentDate}`, 20, yPos);
+    yPos += 10;
+    doc.line(20, yPos, 190, yPos);
+    yPos += 10;
+
+    doc.setFontSize(14);
+    doc.text(`Detallado de Gastos - Casa: ${house}`, 20, yPos);
+    yPos += 10;
+    doc.setFontSize(12);
+    doc.text(`Total Gastos: ${formatter.format(totalExpensesAmount)}`, 20, yPos);
+    yPos += 15;
+    doc.text('Detalles:', 20, yPos);
+    yPos += 10;
+
+    doc.autoTable({
+      startY: yPos,
+      head: [['Fecha', 'Descripción', 'Valor']],
+      body: houseExpenses.map(exp => [exp.date, exp.description, formatter.format(exp.amount)]),
+      theme: 'grid',
+      styles: { fontSize: 10, cellPadding: 2 },
+      headStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: 'bold' }
     });
 
-    // Inicializar la aplicación
-    initClient();
+    doc.save(`detallado-gastos-${house}.pdf`);
+  });
+
+  // Export detailed expenses to Excel
+  document.getElementById('exportDetailExcel').addEventListener('click', () => {
+    const houseExpensesDetail = document.getElementById('houseExpensesDetail');
+    if (houseExpensesDetail.classList.contains('hidden')) {
+      alert('Por favor, seleccione una casa para ver el detallado antes de exportar.');
+      return;
+    }
+
+    const house = document.getElementById('houseExpensesTitle').textContent.split(' - Casa: ')[1];
+    const houseExpenses = expenses.filter(exp => exp.house === house);
+
+    const wb = XLSX.utils.book_new();
+    
+    const wsData = [
+      [''],
+      [''],
+      [''],
+      [''],
+      [''],
+      ['Fecha', 'Descripción', 'Valor'],
+      ...houseExpenses.map(exp => [exp.date, exp.description, exp.amount]),
+      ['', '', ''],
+      [''],
+      ['']
+    ];
+    
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    applyExcelStyles(ws, houseExpenses, house);
+    XLSX.utils.book_append_sheet(wb, ws, house);
+
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `detallado-gastos-${house}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Export all expenses to Excel
+  document.getElementById('exportExcelBtn').addEventListener('click', () => {
+    const wb = XLSX.utils.book_new();
+    houses.forEach(house => {
+      const houseExpenses = expenses.filter(exp => exp.house === house);
+      if (houseExpenses.length > 0) {
+        const wsData = [
+          [''],
+          [''],
+          [''],
+          [''],
+          [''],
+          ['Fecha', 'Descripción', 'Valor'],
+          ...houseExpenses.map(exp => [exp.date, exp.description, exp.amount]),
+          ['', '', ''],
+          [''],
+          ['']
+        ];
+        
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        applyExcelStyles(ws, houseExpenses, house);
+        XLSX.utils.book_append_sheet(wb, ws, house);
+      }
+    });
+
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'gastos-por-casa.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Edit transaction
+  const editModal = document.getElementById('editModal');
+  const cancelEditBtn = document.getElementById('cancelEdit');
+  const saveEditBtn = document.getElementById('saveEdit');
+
+  cancelEditBtn.addEventListener('click', () => {
+    editModal.classList.add('hidden');
+    document.getElementById('editDescription').value = '';
+    document.getElementById('editAmount').value = '';
+    document.getElementById('editAmount').dataset.value = '0';
+    document.getElementById('editDate').value = '2025-06-02';
+    document.getElementById('editHouse').value = '';
+  });
+
+  saveEditBtn.addEventListener('click', () => {
+    const description = document.getElementById('editDescription').value.trim();
+    const amount = parseInt(document.getElementById('editAmount').dataset.value) || 0;
+    const date = document.getElementById('editDate').value;
+    const house = document.getElementById('editHouse').value;
+
+    if (!description || description === '') {
+      alert('Por favor, ingrese una descripción.');
+      return;
+    }
+    if (amount <= 0) {
+      alert('Por favor, ingrese un valor válido mayor a 0.');
+      return;
+    }
+    if (!date) {
+      alert('Por favor, seleccione una fecha.');
+      return;
+    }
+
+    if (window.editType === 'expense') {
+      expenses[window.editIndex] = { description, amount, date, house };
+    } else {
+      incomes[window.editIndex] = { description, amount, date };
+    }
+    saveData();
+    updateDashboard();
+    updateExpensesList();
+    updateIncomesList();
+    editModal.classList.add('hidden');
+  });
+
+  // Navigation between sections
+  document.querySelectorAll('button[data-section]').forEach(button => {
+    button.addEventListener('click', () => {
+      document.querySelectorAll('#dashboard, #gastos, #ingresos, #reportes').forEach(section => {
+        section.classList.add('hidden');
+      });
+      document.getElementById(button.dataset.section).classList.remove('hidden');
+      updateHouseSelects();
+      updateDashboard();
+      updateExpensesList();
+      updateIncomesList();
+    });
+  });
+
+  // Initialize
+  loadGapi();
 });
