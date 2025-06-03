@@ -33,7 +33,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }).then(() => {
                 gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
                 updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
-                document.getElementById('syncDriveBtn').addEventListener('click', handleSyncDrive);
+                const syncDriveBtn = document.getElementById('syncDriveBtn');
+                const syncDriveClone = syncDriveBtn.cloneNode(true);
+                syncDriveBtn.parentNode.replaceChild(syncDriveClone, syncDriveBtn);
+                syncDriveClone.addEventListener('click', handleSyncDrive);
             }).catch(err => {
                 console.error('Error al inicializar Google API:', err);
             });
@@ -249,7 +252,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Registrar nueva casa
-    document.getElementById('newHouseBtn').addEventListener('click', () => {
+    const newHouseBtn = document.getElementById('newHouseBtn');
+    const newHouseBtnClone = newHouseBtn.cloneNode(true);
+    newHouseBtn.parentNode.replaceChild(newHouseBtnClone, newHouseBtn);
+    newHouseBtnClone.addEventListener('click', () => {
         const houseName = prompt('Ingrese el nombre de la nueva casa:');
         if (houseName && !houses.includes(houseName)) {
             houses.push(houseName);
@@ -304,10 +310,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    document.getElementById('sharedExpense').addEventListener('change', updateSharedHouseAssignments);
+    const sharedExpenseCheckbox = document.getElementById('sharedExpense');
+    const sharedExpenseClone = sharedExpenseCheckbox.cloneNode(true);
+    sharedExpenseCheckbox.parentNode.replaceChild(sharedExpenseClone, sharedExpenseCheckbox);
+    sharedExpenseClone.addEventListener('change', updateSharedHouseAssignments);
 
     // Registrar gasto
-    document.getElementById('registerExpense').addEventListener('click', () => {
+    const registerExpenseBtn = document.getElementById('registerExpense');
+    const registerExpenseClone = registerExpenseBtn.cloneNode(true);
+    registerExpenseBtn.parentNode.replaceChild(registerExpenseClone, registerExpenseBtn);
+    registerExpenseClone.addEventListener('click', () => {
         const description = document.getElementById('expenseDescription').value.trim();
         const date = document.getElementById('expenseDate').value;
         const shared = document.getElementById('sharedExpense').checked;
@@ -376,10 +388,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const expensesList = document.getElementById('expensesList');
         const filterHouse = document.getElementById('filterHouses').value;
         expensesList.innerHTML = '';
+
         let filteredExpenses = expenses;
         if (filterHouse !== 'all') {
             filteredExpenses = expenses.filter(exp => exp.house === filterHouse);
         }
+
         filteredExpenses.forEach((exp, index) => {
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -395,9 +409,15 @@ document.addEventListener('DOMContentLoaded', () => {
             expensesList.appendChild(row);
         });
 
-        expensesList.querySelectorAll('.edit-expense').forEach(button => {
-            button.addEventListener('click', () => {
-                const index = parseInt(button.dataset.index);
+        // Asignar event listeners después de renderizar, evitando duplicados
+        const editButtons = expensesList.querySelectorAll('.edit-expense');
+        const deleteButtons = expensesList.querySelectorAll('.delete-expense');
+
+        editButtons.forEach(button => {
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+            newButton.addEventListener('click', () => {
+                const index = parseInt(newButton.dataset.index);
                 const expense = expenses[index];
                 const editModal = document.getElementById('editModal');
                 const editDescription = document.getElementById('editDescription');
@@ -420,9 +440,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        expensesList.querySelectorAll('.delete-expense').forEach(button => {
-            button.addEventListener('click', () => {
-                const index = parseInt(button.dataset.index);
+        deleteButtons.forEach(button => {
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+            newButton.addEventListener('click', () => {
+                const index = parseInt(newButton.dataset.index);
                 if (confirm('¿Está seguro de eliminar este gasto?')) {
                     expenses.splice(index, 1);
                     saveData();
@@ -433,10 +455,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    document.getElementById('filterHouses').addEventListener('change', updateExpensesList);
+    const filterHousesSelect = document.getElementById('filterHouses');
+    const filterHousesClone = filterHousesSelect.cloneNode(true);
+    filterHousesSelect.parentNode.replaceChild(filterHousesClone, filterHousesSelect);
+    filterHousesClone.addEventListener('change', updateExpensesList);
 
     // Registrar ingreso
-    document.getElementById('registerIncome').addEventListener('click', () => {
+    const registerIncomeBtn = document.getElementById('registerIncome');
+    const registerIncomeClone = registerIncomeBtn.cloneNode(true);
+    registerIncomeBtn.parentNode.replaceChild(registerIncomeClone, registerIncomeBtn);
+    registerIncomeClone.addEventListener('click', () => {
         const description = document.getElementById('incomeDescription').value.trim();
         const amount = parseInt(document.getElementById('incomeAmount').dataset.value) || 0;
         const date = document.getElementById('incomeDate').value;
@@ -468,6 +496,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateIncomesList() {
         const incomesList = document.getElementById('incomesList');
         incomesList.innerHTML = '';
+
         incomes.forEach((inc, index) => {
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -482,9 +511,15 @@ document.addEventListener('DOMContentLoaded', () => {
             incomesList.appendChild(row);
         });
 
-        incomesList.querySelectorAll('.edit-income').forEach(button => {
-            button.addEventListener('click', () => {
-                const index = parseInt(button.dataset.index);
+        // Asignar event listeners después de renderizar, evitando duplicados
+        const editButtons = incomesList.querySelectorAll('.edit-income');
+        const deleteButtons = incomesList.querySelectorAll('.delete-income');
+
+        editButtons.forEach(button => {
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+            newButton.addEventListener('click', () => {
+                const index = parseInt(newButton.dataset.index);
                 const income = incomes[index];
                 const editModal = document.getElementById('editModal');
                 const editDescription = document.getElementById('editDescription');
@@ -504,9 +539,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        incomesList.querySelectorAll('.delete-income').forEach(button => {
-            button.addEventListener('click', () => {
-                const index = parseInt(button.dataset.index);
+        deleteButtons.forEach(button => {
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+            newButton.addEventListener('click', () => {
+                const index = parseInt(newButton.dataset.index);
                 if (confirm('¿Está seguro de eliminar este ingreso?')) {
                     incomes.splice(index, 1);
                     saveData();
@@ -518,7 +555,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Generar reporte por casa
-    document.getElementById('generateHouseReport').addEventListener('click', () => {
+    const generateHouseReportBtn = document.getElementById('generateHouseReport');
+    const generateHouseReportClone = generateHouseReportBtn.cloneNode(true);
+    generateHouseReportBtn.parentNode.replaceChild(generateHouseReportClone, generateHouseReportBtn);
+    generateHouseReportClone.addEventListener('click', () => {
         const house = document.getElementById('reportHouse').value;
         if (!house) {
             alert('Por favor, seleccione una casa.');
@@ -555,7 +595,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Generar reporte consolidado
-    document.getElementById('generateConsolidatedReport').addEventListener('click', () => {
+    const generateConsolidatedReportBtn = document.getElementById('generateConsolidatedReport');
+    const generateConsolidatedReportClone = generateConsolidatedReportBtn.cloneNode(true);
+    generateConsolidatedReportBtn.parentNode.replaceChild(generateConsolidatedReportClone, generateConsolidatedReportBtn);
+    generateConsolidatedReportClone.addEventListener('click', () => {
         const startDate = new Date(document.getElementById('consolidatedStartDate').value);
         const endDate = new Date(document.getElementById('consolidatedEndDate').value);
         if (!startDate || !endDate) {
@@ -605,7 +648,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Generar reporte detallado de ingresos
-    document.getElementById('generateIncomeReport').addEventListener('click', () => {
+    const generateIncomeReportBtn = document.getElementById('generateIncomeReport');
+    const generateIncomeReportClone = generateIncomeReportBtn.cloneNode(true);
+    generateIncomeReportBtn.parentNode.replaceChild(generateIncomeReportClone, generateIncomeReportBtn);
+    generateIncomeReportClone.addEventListener('click', () => {
         const startDate = new Date(document.getElementById('incomeStartDate').value);
         const endDate = new Date(document.getElementById('incomeEndDate').value);
         if (!startDate || !endDate) {
@@ -647,7 +693,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Exportar a PDF
-    document.getElementById('exportPdf').addEventListener('click', () => {
+    const exportPdfBtn = document.getElementById('exportPdf');
+    const exportPdfClone = exportPdfBtn.cloneNode(true);
+    exportPdfBtn.parentNode.replaceChild(exportPdfClone, exportPdfBtn);
+    exportPdfClone.addEventListener('click', () => {
         const doc = new jsPDF();
         const currentDate = new Date().toLocaleString('es-CO', { dateStyle: 'full', timeStyle: 'short' });
         let yPos = 20;
@@ -777,7 +826,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Exportar detallado de gastos a PDF
-    document.getElementById('exportDetailPdf').addEventListener('click', () => {
+    const exportDetailPdfBtn = document.getElementById('exportDetailPdf');
+    const exportDetailPdfClone = exportDetailPdfBtn.cloneNode(true);
+    exportDetailPdfBtn.parentNode.replaceChild(exportDetailPdfClone, exportDetailPdfBtn);
+    exportDetailPdfClone.addEventListener('click', () => {
         const houseExpensesDetail = document.getElementById('houseExpensesDetail');
         if (houseExpensesDetail.classList.contains('hidden')) {
             alert('Por favor, seleccione una casa para ver el detallado antes de exportar.');
@@ -824,7 +876,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Exportar detallado de gastos a Excel
-    document.getElementById('exportDetailExcel').addEventListener('click', () => {
+    const exportDetailExcelBtn = document.getElementById('exportDetailExcel');
+    const exportDetailExcelClone = exportDetailExcelBtn.cloneNode(true);
+    exportDetailExcelBtn.parentNode.replaceChild(exportDetailExcelClone, exportDetailExcelBtn);
+    exportDetailExcelClone.addEventListener('click', () => {
         const houseExpensesDetail = document.getElementById('houseExpensesDetail');
         if (houseExpensesDetail.classList.contains('hidden')) {
             alert('Por favor, seleccione una casa para ver el detallado antes de exportar.');
@@ -848,7 +903,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Exportar todos los gastos a Excel
-    document.getElementById('exportExcelBtn').addEventListener('click', () => {
+    const exportExcelBtn = document.getElementById('exportExcelBtn');
+    const exportExcelClone = exportExcelBtn.cloneNode(true);
+    exportExcelBtn.parentNode.replaceChild(exportExcelClone, exportExcelBtn);
+    exportExcelClone.addEventListener('click', () => {
         const ws = utils.book_new();
         const currentDate = new Date().toLocaleString('es-CO', { dateStyle: 'full', timeStyle: 'short' });
 
@@ -975,7 +1033,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Backup
-    document.getElementById('backupBtn').addEventListener('click', () => {
+    const backupBtn = document.getElementById('backupBtn');
+    const backupClone = backupBtn.cloneNode(true);
+    backupBtn.parentNode.replaceChild(backupClone, backupBtn);
+    backupClone.addEventListener('click', () => {
         const data = { houses, expenses, incomes };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -988,11 +1049,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Importar Backup
-    document.getElementById('importBtn').addEventListener('click', () => {
+    const importBtn = document.getElementById('importBtn');
+    const importClone = importBtn.cloneNode(true);
+    importBtn.parentNode.replaceChild(importClone, importBtn);
+    importClone.addEventListener('click', () => {
         document.getElementById('importBackup').click();
     });
 
-    document.getElementById('importBackup').addEventListener('change', (e) => {
+    const importBackupInput = document.getElementById('importBackup');
+    const importBackupClone = importBackupInput.cloneNode(true);
+    importBackupInput.parentNode.replaceChild(importBackupClone, importBackupInput);
+    importBackupClone.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
@@ -1017,7 +1084,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Guardar cambios desde el modal de edición
-    document.getElementById('saveEdit').addEventListener('click', () => {
+    const saveEditBtn = document.getElementById('saveEdit');
+    const saveEditClone = saveEditBtn.cloneNode(true);
+    saveEditBtn.parentNode.replaceChild(saveEditClone, saveEditBtn);
+    saveEditClone.addEventListener('click', () => {
         const description = document.getElementById('editDescription').value.trim();
         const amount = parseInt(document.getElementById('editAmount').dataset.value) || 0;
         const date = document.getElementById('editDate').value;
@@ -1054,19 +1124,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Cancelar edición
-    document.getElementById('cancelEdit').addEventListener('click', () => {
+    const cancelEditBtn = document.getElementById('cancelEdit');
+    const cancelEditClone = cancelEditBtn.cloneNode(true);
+    cancelEditBtn.parentNode.replaceChild(cancelEditClone, cancelEditBtn);
+    cancelEditClone.addEventListener('click', () => {
         document.getElementById('editModal').classList.add('hidden');
     });
 
     // Navegación entre secciones
     document.querySelectorAll('.nav-buttons button').forEach(button => {
-        button.addEventListener('click', () => {
-            const sectionId = button.dataset.section;
-            document.querySelectorAll('.section').forEach(section => {
-                section.classList.add('hidden');
+        const sectionId = button.dataset.section;
+        if (sectionId) {
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+            newButton.addEventListener('click', () => {
+                document.querySelectorAll('.section').forEach(section => {
+                    section.classList.add('hidden');
+                });
+                document.getElementById(sectionId).classList.remove('hidden');
             });
-            document.getElementById(sectionId).classList.remove('hidden');
-        });
+        }
     });
 
     // Inicializar la aplicación
