@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Handle sign-in status
   function updateSigninStatus(signedIn) {
     isSignedIn = signedIn;
+	console.log('Sign-in status updated:', isSignedIn);//--*************ojo quiar luego
     if (isSignedIn) {
       loadDataFromDrive();
     } else {
@@ -77,6 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('Please sign in to Google Drive to sync data.');
       return;
     }
+    console.log('Attempting to save data to Google Drive...'); // Añade este log**************
     const data = { houses, expenses, incomes };
     const fileContent = JSON.stringify(data, null, 2);
     const metadata = {
@@ -90,6 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
       spaces: 'appDataFolder',
       q: "name='house-management-data.json'"
     }).then(response => {
+      console.log('Files list response:', response); // Añade este log**********
       const files = response.result.files;
       if (files && files.length > 0) {
         // Update existing file
@@ -857,19 +860,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Sync with Google Drive
   document.getElementById('syncGoogleDrive').addEventListener('click', () => {
+console.log('Sync button clicked'); // Añade este log*****************************
     if (!gapiLoaded) {
+console.log('Loading GAPI...'); // Añade este log******************************
       loadGapi();
       setTimeout(() => {
+console.log('isSignedIn after loadGapi:', isSignedIn); // Añade este log*******
         if (!isSignedIn) {
+console.log('Not signed in, initiating sign-in...'); // Añade este log**********
           signIn();
         } else {
+console.log('Already signed in, saving data...'); // Añade este log*************
           saveDataToDrive();
           alert('Data synced with Google Drive.');
         }
       }, 1000);
     } else if (!isSignedIn) {
+console.log('Not signed in, initiating sign-in...'); // Añade este log*************
       signIn();
     } else {
+console.log('Already signed in, saving data...'); // Añade este log**************
       saveDataToDrive();
       alert('Data synced with Google Drive.');
     }
