@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Google Drive API configuration
   const CLIENT_ID = '429861903088-l0tprfs66bhbei0k2ng2svoik5suo109.apps.googleusercontent.com';
-  const API_KEY = 'AIzaSyD7zLcyUcIgBa0r4S02BQotJktzNwE6zrM'; // Replace with your Google Cloud API Key
+  //const API_KEY = 'AIzaSyD7zLcyUcIgBa0r4S02BQotJktzNwE6zrM'; // Replace with your Google Cloud API Key
   const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
   const SCOPES = 'https://www.googleapis.com/auth/drive.file';
   let gapiLoaded = false;
@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function initGapiClient(attempt = 1, maxAttempts = 3) {
   console.log('Initializing GAPI client... Attempt', attempt);
   gapi.client.init({
-    apiKey: API_KEY,
+    //apiKey: API_KEY,
     clientId: CLIENT_ID,
     discoveryDocs: DISCOVERY_DOCS,
     scope: SCOPES
