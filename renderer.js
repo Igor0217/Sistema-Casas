@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let incomes = [];
 
   // Initialize Google API client
-  function initGapiClient(attempt = 1, maxAttempts = 3) {
+  function initGapiClient(attempt = 5, maxAttempts = 3) {
   console.log('Initializing GAPI client... Attempt', attempt);
   gapi.client.init({
     //apiKey: API_KEY,
