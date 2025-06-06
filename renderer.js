@@ -3,8 +3,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const { utils, write, WorkBook } = XLSX;
 
   // Google Drive API configuration
-  const CLIENT_ID = '429861903088-3h4275qhqb8pqvoi7e0th3e2n3k4ahbq.apps.googleusercontent.com'; // Replace with your Google Cloud OAuth Client ID
-  const API_KEY = 'AIzaSyDn2fQG0P4QJvCx-R0CltVwbnB16_ujECA'; // Replace with your Google Cloud API Key
+  const CLIENT_ID = '429861903088-l0tprfs66bhbei0k2ng2svoik5suo109.apps.googleusercontent.com';
+  const API_KEY = 'AIzaSyD7zLcyUcIgBa0r4S02BQotJktzNwE6zrM'; // Replace with your Google Cloud API Key
   const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
   const SCOPES = 'https://www.googleapis.com/auth/drive.file';
   let gapiLoaded = false;
