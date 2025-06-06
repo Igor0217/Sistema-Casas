@@ -83,11 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
     alert('Authentication failed. Please try again after refreshing the page.');
     return;
   }
-  authInstance.signIn({
-    login_hint: 'garcesalexander1975@gmail.com'
-  }).then(() => {
+  authInstance.signIn().then(() => {
     console.log('Sign-in successful');
-    // Force update of isSignedIn in case the listener fails
     updateSigninStatus(authInstance.isSignedIn.get());
   }, (error) => {
     console.error('Sign-in failed:', error);
