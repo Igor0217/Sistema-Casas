@@ -938,32 +938,8 @@ async function loadDataFromFirestore() {
   document.getElementById('syncGoogleDrive').addEventListener('click', () => {
   console.log('Sync button clicked');
   saveDataToFirestore();
-  if (!gapiLoaded) {
-    console.log('Loading GAPI...');
-    loadGapi();
-    setTimeout(() => {
-      console.log('isSignedIn after loadGapi:', isSignedIn);
-      if (!isSignedIn && gapi.auth2) {
-        console.log('Not signed in, initiating sign-in...');
-        signIn();
-      } else if (isSignedIn) {
-        console.log('Already signed in, saving data...');
-        saveDataToDrive();
-        alert('Data synced with Google Drive.');
-      } else {
-        console.error('GAPI not fully loaded. Please try again.');
-        alert('Authentication failed. Please try again.');
-      }
-    }, 1000);
-  } else if (!isSignedIn) {
-    console.log('Not signed in, initiating sign-in...');
-    signIn();
-  } else {
-    console.log('Already signed in, saving data...');
-    saveDataToDrive();
-    alert('Data synced with Google Drive.');
-  }
 });
+  
 
   // Apply Excel styles
   function applyExcelStyles(ws, houseExpenses, house) {
