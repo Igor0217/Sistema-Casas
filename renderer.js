@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Google Drive API configuration
   const CLIENT_ID = '429861903088-3h4275qhqb8pqvoi7e0th3e2n3k4ahbq.apps.googleusercontent.com'; // Replace with your Google Cloud OAuth Client ID
-  const API_KEY = 'AIzaSyA8QVoI7TQhp3oQKJlz2qCBKMNBErjnVPE'; // Replace with your Google Cloud API Key
+  const API_KEY = 'AIzaSyDn2fQG0P4QJvCx-R0CltVwbnB16_ujECA'; // Replace with your Google Cloud API Key
   const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
   const SCOPES = 'https://www.googleapis.com/auth/drive.file';
   let gapiLoaded = false;
