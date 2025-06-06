@@ -1,14 +1,27 @@
+const firebaseConfig = {
+  apiKey: "AIzaSyCH1771AFZyfSD_PvNxR9AQoZ30dg_DcOg",
+  authDomain: "fortalezasas-25e42.firebaseapp.com",
+  projectId: "fortalezasas-25e42",
+  storageBucket: "fortalezasas-25e42.firebasestorage.app",
+  messagingSenderId: "383032445971",
+  appId: "1:383032445971:web:490f92170d2f36be70c3e6"
+};
+
+// Inicializa Firebase
+const app = firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 document.addEventListener('DOMContentLoaded', () => {
+  loadDataFromFirestore();
   const { jsPDF } = window.jspdf;
   const { utils, write, WorkBook } = XLSX;
 
   // Google Drive API configuration
-  const CLIENT_ID = '429861903088-l0tprfs66bhbei0k2ng2svoik5suo109.apps.googleusercontent.com';
+  //const CLIENT_ID = '429861903088-l0tprfs66bhbei0k2ng2svoik5suo109.apps.googleusercontent.com';
   //const API_KEY = 'AIzaSyD7zLcyUcIgBa0r4S02BQotJktzNwE6zrM'; // Replace with your Google Cloud API Key
-  const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
-  const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-  let gapiLoaded = false;
-  let isSignedIn = false;
+  //const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
+  //const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+  //let gapiLoaded = false;
+  //let isSignedIn = false;
 
   // Formatter for Colombian pesos without decimals
   const formatter = new Intl.NumberFormat('es-CO', {
@@ -24,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let incomes = [];
 
   // Initialize Google API client
-  function initGapiClient(attempt = 5, maxAttempts = 3) {
+ /* function initGapiClient(attempt = 5, maxAttempts = 3) {
   console.log('Initializing GAPI client... Attempt', attempt);
   gapi.client.init({
     //apiKey: API_KEY,
@@ -44,10 +57,10 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('Error initializing Google Drive. Falling back to local storage.');
     }
   });
-}
+}*/
 
   // Handle sign-in status
-  function updateSigninStatus(signedIn) {
+  /*function updateSigninStatus(signedIn) {
     isSignedIn = signedIn;
 	console.log('Sign-in status updated:', isSignedIn);//--*************ojo quiar luego
     if (isSignedIn) {
@@ -62,20 +75,20 @@ document.addEventListener('DOMContentLoaded', () => {
       updateExpensesList();
       updateIncomesList();
     }
-  }
+  }*/
 
   // Load Google API client
-  function loadGapi() {
-  if (!gapiLoaded) {
-    gapi.load('client:auth2', () => {
-      gapiLoaded = true;
-      initGapiClient();
-    });
-  }
-}
+  //function loadGapi() {
+  //if (!gapiLoaded) {
+   // gapi.load('client:auth2', () => {
+  //    gapiLoaded = true;
+  //    initGapiClient();
+  //  });
+ // }
+//}
 
   // Sign in to Google
-  function signIn() {
+ /* function signIn() {
   console.log('Initiating Google sign-in...');
   const authInstance = gapi.auth2.getAuthInstance();
   if (!authInstance) {
@@ -93,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
 }
 
   // Save data to Google Drive
-  function saveDataToDrive() {
+  /*function saveDataToDrive() {
     if (!isSignedIn) {
       alert('Please sign in to Google Drive to sync data.');
       return;
@@ -150,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Load data from Google Drive
+   Load data from Google Drive
   function loadDataFromDrive() {
     if (!isSignedIn) {
       return;
@@ -212,15 +225,58 @@ document.addEventListener('DOMContentLoaded', () => {
       updateExpensesList();
       updateIncomesList();
     });
-  }
+  }*/
+//*************************************************************************************** */
 
+async function saveDataToFirestore() {
+  console.log('Saving data to Firestore...');
+  const data = { houses, expenses, incomes };
+  try {
+    await db.collection('userData').doc('appData').set(data);
+    console.log('Data saved to Firestore');
+    alert('Datos sincronizados con Firestore.');
+  } catch (error) {
+    console.error('Error saving to Firestore:', error);
+    alert('Error al sincronizar datos con Firestore. Guardando localmente.');
+    saveData();
+  }
+}
+
+async function loadDataFromFirestore() {
+  console.log('Loading data from Firestore...');
+  try {
+    const doc = await db.collection('userData').doc('appData').get();
+    if (doc.exists) {
+      const data = doc.data();
+      houses = data.houses || [];
+      expenses = data.expenses || [];
+      incomes = data.incomes || [];
+      console.log('Data loaded from Firestore');
+    } else {
+      console.log('No data found in Firestore. Using local storage.');
+      houses = JSON.parse(localStorage.getItem('houses')) || [];
+      expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+      incomes = JSON.parse(localStorage.getItem('incomes')) || [];
+    }
+  } catch (error) {
+    console.error('Error loading from Firestore:', error);
+    houses = JSON.parse(localStorage.getItem('houses')) || [];
+    expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+    incomes = JSON.parse(localStorage.getItem('incomes')) || [];
+  }
+  updateHouseSelects();
+  updateDashboard();
+  updateExpensesList();
+  updateIncomesList();
+}
   // Save data (to both localStorage and Google Drive)
   function saveData() {
-    localStorage.setItem('houses', JSON.stringify(houses));
-    localStorage.setItem('expenses', JSON.stringify(expenses));
-    localStorage.setItem('incomes', JSON.stringify(incomes));
-    saveDataToDrive();
-  }
+  console.log('Saving data locally and to Firestore...');
+  localStorage.setItem('houses', JSON.stringify(houses));
+  localStorage.setItem('expenses', JSON.stringify(expenses));
+  localStorage.setItem('incomes', JSON.stringify(incomes));
+  saveDataToFirestore();
+}
 
   // Format input for currency
   window.formatInput = function(input) {
@@ -881,6 +937,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Sync with Google Drive
   document.getElementById('syncGoogleDrive').addEventListener('click', () => {
   console.log('Sync button clicked');
+  saveDataToFirestore();
   if (!gapiLoaded) {
     console.log('Loading GAPI...');
     loadGapi();
