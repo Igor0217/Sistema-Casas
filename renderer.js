@@ -24,20 +24,27 @@ document.addEventListener('DOMContentLoaded', () => {
   let incomes = [];
 
   // Initialize Google API client
-  function initGapiClient() {
-    gapi.client.init({
-      apiKey: API_KEY,
-      clientId: CLIENT_ID,
-      discoveryDocs: DISCOVERY_DOCS,
-      scope: SCOPES
-    }).then(() => {
-      gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
-      updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
-    }, (error) => {
-      console.error('Error initializing GAPI client:', error);
+  function initGapiClient(attempt = 1, maxAttempts = 3) {
+  console.log('Initializing GAPI client... Attempt', attempt);
+  gapi.client.init({
+    apiKey: API_KEY,
+    clientId: CLIENT_ID,
+    discoveryDocs: DISCOVERY_DOCS,
+    scope: SCOPES
+  }).then(() => {
+    console.log('GAPI client initialized successfully');
+    gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+    updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+  }, (error) => {
+    console.error('Error initializing GAPI client:', error);
+    if (attempt < maxAttempts && error.status === 502) {
+      console.log('Retrying GAPI client initialization in 5 seconds...');
+      setTimeout(() => initGapiClient(attempt + 1, maxAttempts), 5000);
+    } else {
       alert('Error initializing Google Drive. Falling back to local storage.');
-    });
-  }
+    }
+  });
+}
 
   // Handle sign-in status
   function updateSigninStatus(signedIn) {
@@ -59,23 +66,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Load Google API client
   function loadGapi() {
-    if (!gapiLoaded) {
-      gapi.load('client:auth2', () => {
-        gapiLoaded = true;
-        initGapiClient();
-      });
-    }
+  if (!gapiLoaded) {
+    gapi.load('client:auth2', () => {
+      gapiLoaded = true;
+      initGapiClient();
+    });
   }
+}
 
   // Sign in to Google
   function signIn() {
   console.log('Initiating Google sign-in...');
-  gapi.auth2.getAuthInstance().signIn({
-    login_hint: 'garcesalexander1975@gmail.com' // Forzamos el login hint para evitar problemas
+  const authInstance = gapi.auth2.getAuthInstance();
+  if (!authInstance) {
+    console.error('GAPI auth instance not available. Please try again.');
+    alert('Authentication failed. Please try again after refreshing the page.');
+    return;
+  }
+  authInstance.signIn({
+    login_hint: 'garcesalexander1975@gmail.com'
   }).then(() => {
     console.log('Sign-in successful');
+    // Force update of isSignedIn in case the listener fails
+    updateSigninStatus(authInstance.isSignedIn.get());
   }, (error) => {
     console.error('Sign-in failed:', error);
+    alert('Sign-in failed: ' + (error.error || 'Unknown error'));
   });
 }
 
@@ -867,30 +883,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Sync with Google Drive
   document.getElementById('syncGoogleDrive').addEventListener('click', () => {
-console.log('Sync button clicked'); // Añade este log*****************************
-    if (!gapiLoaded) {
-console.log('Loading GAPI...'); // Añade este log******************************
-      loadGapi();
-      setTimeout(() => {
-console.log('isSignedIn after loadGapi:', isSignedIn); // Añade este log*******
-        if (!isSignedIn) {
-console.log('Not signed in, initiating sign-in...'); // Añade este log**********
-          signIn();
-        } else {
-console.log('Already signed in, saving data...'); // Añade este log*************
-          saveDataToDrive();
-          alert('Data synced with Google Drive.');
-        }
-      }, 1000);
-    } else if (!isSignedIn) {
-console.log('Not signed in, initiating sign-in...'); // Añade este log*************
-      signIn();
-    } else {
-console.log('Already signed in, saving data...'); // Añade este log**************
-      saveDataToDrive();
-      alert('Data synced with Google Drive.');
-    }
-  });
+  console.log('Sync button clicked');
+  if (!gapiLoaded) {
+    console.log('Loading GAPI...');
+    loadGapi();
+    setTimeout(() => {
+      console.log('isSignedIn after loadGapi:', isSignedIn);
+      if (!isSignedIn && gapi.auth2) {
+        console.log('Not signed in, initiating sign-in...');
+        signIn();
+      } else if (isSignedIn) {
+        console.log('Already signed in, saving data...');
+        saveDataToDrive();
+        alert('Data synced with Google Drive.');
+      } else {
+        console.error('GAPI not fully loaded. Please try again.');
+        alert('Authentication failed. Please try again.');
+      }
+    }, 1000);
+  } else if (!isSignedIn) {
+    console.log('Not signed in, initiating sign-in...');
+    signIn();
+  } else {
+    console.log('Already signed in, saving data...');
+    saveDataToDrive();
+    alert('Data synced with Google Drive.');
+  }
+});
 
   // Apply Excel styles
   function applyExcelStyles(ws, houseExpenses, house) {
