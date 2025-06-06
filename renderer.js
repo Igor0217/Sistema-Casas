@@ -69,8 +69,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Sign in to Google
   function signIn() {
-    gapi.auth2.getAuthInstance().signIn();
-  }
+  console.log('Initiating Google sign-in...');
+  gapi.auth2.getAuthInstance().signIn({
+    login_hint: 'garcesalexander1975@gmail.com' // Forzamos el login hint para evitar problemas
+  }).then(() => {
+    console.log('Sign-in successful');
+  }, (error) => {
+    console.error('Sign-in failed:', error);
+  });
+}
 
   // Save data to Google Drive
   function saveDataToDrive() {
