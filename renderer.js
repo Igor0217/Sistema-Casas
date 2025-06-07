@@ -2405,7 +2405,7 @@ function initializeProfessionalFeatures() {
   // Inicializar sincronización en tiempo real
   setupRealtimeSync();
   // Establecer fecha actual por defecto para reportes avanzados
-  const today = new Date().toISOString().split('T')[0];
+  const todayAdvanced = new Date().toISOString().split('T')[0];
   const consolidatedAdvancedStartDate = document.getElementById('consolidatedAdvancedStartDate');
   const consolidatedAdvancedEndDate = document.getElementById('consolidatedAdvancedEndDate');
   
@@ -2413,7 +2413,8 @@ function initializeProfessionalFeatures() {
     consolidatedAdvancedStartDate.value = '2025-01-01';
   }
   if (consolidatedAdvancedEndDate) {
-    consolidatedAdvancedEndDate.value = today;
+    consolidatedAdvancedEndDate.value = todayAdvanced;
   }
   // Cargar datos iniciales
-  console.log('Sistema iniciado correctamente con funciones de exportación');});
+  console.log('Sistema iniciado correctamente con funciones de exportación');
+});
