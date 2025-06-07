@@ -1606,11 +1606,11 @@ document.addEventListener('DOMContentLoaded', () => {
           theme: 'striped',
           styles: { fontSize: 9, cellPadding: 3 },
           headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontStyle: 'bold' },
-          columnStyles: {
-{ cellWidth: 25 },
-{ cellWidth: 100 },
-{ cellWidth: 30, halign: 'right' }
-          }
+columnStyles: {
+  0: { cellWidth: 25 },
+  1: { cellWidth: 100 },
+  2: { cellWidth: 30, halign: 'right' }
+}
         });
         
         yPos = doc.lastAutoTable.finalY + 15;
@@ -1640,11 +1640,11 @@ document.addEventListener('DOMContentLoaded', () => {
           theme: 'striped',
           styles: { fontSize: 9, cellPadding: 3 },
           headStyles: { fillColor: [34, 197, 94], textColor: [255, 255, 255], fontStyle: 'bold' },
-          columnStyles: {
-{ cellWidth: 25 },
-{ cellWidth: 100 },
-{ cellWidth: 30, halign: 'right' }
-          }
+columnStyles: {
+  0: { cellWidth: 25 },
+  1: { cellWidth: 100 },
+  2: { cellWidth: 30, halign: 'right' }
+}
         });
       }
       
