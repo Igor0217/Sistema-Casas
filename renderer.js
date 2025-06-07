@@ -1429,4 +1429,153 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Cargar datos iniciales
   console.log('Sistema iniciado correctamente');
+Event listeners para botones de exportación del dashboard
+document.getElementById('exportDetailPdf').addEventListener('click', () => {
+  const houseExpensesDetail = document.getElementById('houseExpensesDetail');
+  if (houseExpensesDetail.classList.contains('hidden')) {
+    showNotification('Por favor, seleccione una casa para ver el detallado antes de exportar.', 'error');
+    return;
+  }
+  const titleElement = document.getElementById('houseExpensesTitle');
+  const titleText = titleElement.textContent;
+  const houseName = titleText.split(' - ')[1] || 'Casa';
+  
+  // Obtener datos de la casa
+  const houseNameClean = houseName.replace('Detallado de Transacciones - ', '').split(' (')[0];
+  const houseExpenses = expenses.filter(exp => exp.house === houseNameClean);
+  const houseIncomes = incomes.filter(inc => inc.house === houseNameClean);
+  
+  if (houseExpenses.length === 0 && houseIncomes.length === 0) {
+    showNotification('No hay datos para exportar.', 'warning');
+    return;
+  }
+  // Crear PDF
+  const doc = new jsPDF();
+  
+  // Título
+  doc.setFontSize(16);
+  doc.text('Sistema de Gestión de Casas', 20, 20);
+  
+  doc.setFontSize(14);
+  doc.text(titleText, 20, 35);
+  
+  doc.setFontSize(10);
+  doc.text(`Fecha de generación: ${new Date().toLocaleDateString('es-CO')}`, 20, 45);
+  
+  let yPos = 60;
+  
+  // Gastos
+  if (houseExpenses.length > 0) {
+    doc.setFontSize(12);
+    doc.text('GASTOS:', 20, yPos);
+    yPos += 10;
+    
+    const expensesData = houseExpenses.map(exp => [
+      exp.date,
+      exp.description,
+      formatter.format(exp.amount)
+    ]);
+    
+    doc.autoTable({
+      startY: yPos,
+      head: [['Fecha', 'Descripción', 'Valor']],
+      body: expensesData,
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: 'bold' }
+    });
+    
+    yPos = doc.lastAutoTable.finalY + 10;
+    
+    const totalExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    doc.setFontSize(10);
+    doc.text(`Total Gastos: ${formatter.format(totalExpenses)}`, 20, yPos);
+    yPos += 15;
+  }
+  
+  // Ingresos (solo para casas independientes)
+  const house = houses.find(h => h.name === houseNameClean);
+  if (house && house.type === 'independiente' && houseIncomes.length > 0) {
+    doc.setFontSize(12);
+    doc.text('INGRESOS:', 20, yPos);
+    yPos += 10;
+    
+    const incomesData = houseIncomes.map(inc => [
+      inc.date,
+      inc.description,
+      formatter.format(inc.amount)
+    ]);
+    
+    doc.autoTable({
+      startY: yPos,
+      head: [['Fecha', 'Descripción', 'Valor']],
+      body: incomesData,
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: 'bold' }
+    });
+    
+    yPos = doc.lastAutoTable.finalY + 10;
+    
+    const totalIncomes = houseIncomes.reduce((sum, inc) => sum + inc.amount, 0);
+    doc.setFontSize(10);
+    doc.text(`Total Ingresos: ${formatter.format(totalIncomes)}`, 20, yPos);
+    yPos += 10;
+    
+    const balance = totalIncomes - houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    doc.text(`Saldo: ${formatter.format(balance)}`, 20, yPos);
+  }
+  
+  // Guardar PDF
+  doc.save(`detalle-${houseNameClean.toLowerCase().replace(/\s+/g, '-')}.pdf`);
+  showNotification('PDF exportado correctamente.', 'success');
+});
+document.getElementById('exportDetailExcel').addEventListener('click', () => {
+  const houseExpensesDetail = document.getElementById('houseExpensesDetail');
+  if (houseExpensesDetail.classList.contains('hidden')) {
+    showNotification('Por favor, seleccione una casa para ver el detallado antes de exportar.', 'error');
+    return;
+  }
+  const titleElement = document.getElementById('houseExpensesTitle');
+  const titleText = titleElement.textContent;
+  const houseName = titleText.split(' - ')[1] || 'Casa';
+  
+  // Obtener datos de la casa
+  const houseNameClean = houseName.replace('Detallado de Transacciones - ', '').split(' (')[0];
+  const houseExpenses = expenses.filter(exp => exp.house === houseNameClean);
+  const houseIncomes = incomes.filter(inc => inc.house === houseNameClean);
+  
+  if (houseExpenses.length === 0 && houseIncomes.length === 0) {
+    showNotification('No hay datos para exportar.', 'warning');
+    return;
+  }
+  const wb = XLSX.utils.book_new();
+  
+  // Hoja de gastos
+  if (houseExpenses.length > 0) {
+    const expensesData = [
+      ['Fecha', 'Descripción', 'Valor'],
+      ...houseExpenses.map(exp => [exp.date, exp.description, exp.amount])
+    ];
+    
+    const ws = XLSX.utils.aoa_to_sheet(expensesData);
+    XLSX.utils.book_append_sheet(wb, ws, 'Gastos');
+  }
+  
+  // Hoja de ingresos (solo para casas independientes)
+  const house = houses.find(h => h.name === houseNameClean);
+  if (house && house.type === 'independiente' && houseIncomes.length > 0) {
+    const incomesData = [
+      ['Fecha', 'Descripción', 'Valor'],
+      ...houseIncomes.map(inc => [inc.date, inc.description, inc.amount])
+    ];
+    
+    const ws = XLSX.utils.aoa_to_sheet(incomesData);
+    XLSX.utils.book_append_sheet(wb, ws, 'Ingresos');
+  }
+  
+  // Guardar Excel
+  XLSX.writeFile(wb, `detalle-${houseNameClean.toLowerCase().replace(/\s+/g, '-')}.xlsx`);
+  showNotification('Excel exportado correctamente.', 'success');
+});
 });
