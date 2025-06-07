@@ -2400,10 +2400,10 @@ function initializeProfessionalFeatures() {
   // Inicializar sincronización en tiempo real
   setupRealtimeSync();
   // Establecer fecha actual por defecto para reportes avanzados
-  const today = new Date().toISOString().split('T')[0];
+  const todayAdvanced = new Date().toISOString().split('T')[0];
   if (document.getElementById('consolidatedAdvancedStartDate')) {
     document.getElementById('consolidatedAdvancedStartDate').value = '2025-01-01';
-    document.getElementById('consolidatedAdvancedEndDate').value = today;
+    document.getElementById('consolidatedAdvancedEndDate').value = todayAdvanced;
   }
   // Cargar datos iniciales
   console.log('Sistema iniciado correctamente con funciones de exportación');
