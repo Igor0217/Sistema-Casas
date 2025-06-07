@@ -11,6 +11,52 @@ const firebaseConfig = {
 const app = firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+// Listener en tiempo real para cambios en la base de datos*****************************
+function setupRealtimeSync() {
+  console.log('Configurando sincronización en tiempo real...');
+  
+  db.collection('userData').doc('appData').onSnapshot((doc) => {
+    console.log('Cambio detectado en Firestore');
+    
+    if (doc.exists) {
+      const data = doc.data();
+      const newHouses = data.houses || [];
+      const newExpenses = data.expenses || [];
+      const newIncomes = data.incomes || [];
+      
+      // Verificar si hay cambios reales
+      const hasChanges = 
+        JSON.stringify(houses) !== JSON.stringify(newHouses) ||
+        JSON.stringify(expenses) !== JSON.stringify(newExpenses) ||
+        JSON.stringify(incomes) !== JSON.stringify(newIncomes);
+      
+      if (hasChanges) {
+        console.log('Actualizando datos desde Firestore...');
+        
+        houses = newHouses;
+        expenses = newExpenses;
+        incomes = newIncomes;
+        
+        // Migrar datos si es necesario
+        migrateOldData();
+        
+        // Actualizar localStorage como backup
+        localStorage.setItem('houses', JSON.stringify(houses));
+        localStorage.setItem('expenses', JSON.stringify(expenses));
+        localStorage.setItem('incomes', JSON.stringify(incomes));
+        
+        // Actualizar todas las vistas
+        updateAllViews();
+        
+        // Mostrar notificación
+        showNotification('📱 Datos actualizados automáticamente', 'info');
+      }
+    }
+  }, (error) => {
+    console.error('Error en sincronización en tiempo real:', error);
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   loadDataFromFirestore();
   const { jsPDF } = window.jspdf;
@@ -77,51 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateAllViews();
   }
   
-  // Listener en tiempo real para cambios en la base de datos*****************************
-function setupRealtimeSync() {
-  console.log('Configurando sincronización en tiempo real...');
   
-  db.collection('userData').doc('appData').onSnapshot((doc) => {
-    console.log('Cambio detectado en Firestore');
-    
-    if (doc.exists) {
-      const data = doc.data();
-      const newHouses = data.houses || [];
-      const newExpenses = data.expenses || [];
-      const newIncomes = data.incomes || [];
-      
-      // Verificar si hay cambios reales
-      const hasChanges = 
-        JSON.stringify(houses) !== JSON.stringify(newHouses) ||
-        JSON.stringify(expenses) !== JSON.stringify(newExpenses) ||
-        JSON.stringify(incomes) !== JSON.stringify(newIncomes);
-      
-      if (hasChanges) {
-        console.log('Actualizando datos desde Firestore...');
-        
-        houses = newHouses;
-        expenses = newExpenses;
-        incomes = newIncomes;
-        
-        // Migrar datos si es necesario
-        migrateOldData();
-        
-        // Actualizar localStorage como backup
-        localStorage.setItem('houses', JSON.stringify(houses));
-        localStorage.setItem('expenses', JSON.stringify(expenses));
-        localStorage.setItem('incomes', JSON.stringify(incomes));
-        
-        // Actualizar todas las vistas
-        updateAllViews();
-        
-        // Mostrar notificación
-        showNotification('📱 Datos actualizados automáticamente', 'info');
-      }
-    }
-  }, (error) => {
-    console.error('Error en sincronización en tiempo real:', error);
-  });
-}
 //**********************************************************
 
   // Cargar desde localStorage
@@ -1442,12 +1444,13 @@ function setupRealtimeSync() {
   });
 
   // Exportar a PDF (función básica - se puede expandir)
-  document.getElementById('exportPdf').addEventListener('click', () => {
+  function exportProfessionalPdf() {
   const reportContent = document.getElementById('reportContent');
   if (reportContent.innerHTML.trim() === '') {
     showNotification('Por favor, genere un reporte antes de exportar a PDF.', 'error');
     return;
   }
+
   const doc = new jsPDF();
   const title = reportContent.querySelector('h3');
   const titleText = title ? title.textContent : 'Reporte';
@@ -1470,67 +1473,138 @@ function setupRealtimeSync() {
   doc.setTextColor(0, 0, 0);
   let yPos = 50;
   
-  // Obtener datos del reporte visible
-  const tables = reportContent.querySelectorAll('table');
-  const summaryCards = reportContent.querySelectorAll('.bg-green-100, .bg-red-100, .bg-yellow-100, .bg-blue-50, .bg-pink-50');
-  
-  // Agregar resumen si existe
-  if (summaryCards.length > 0) {
-    doc.setFontSize(12);
-    doc.text('RESUMEN FINANCIERO', 20, yPos);
-    yPos += 10;
+  // Detectar tipo de reporte y agregar contenido
+  if (titleText.includes('Reporte Detallado -')) {
+    // Reporte por casa
+    const houseName = titleText.split(' - ')[1];
+    const house = houses.find(h => h.name === houseName);
+    const houseExpenses = expenses.filter(exp => exp.house === houseName);
+    const houseIncomes = incomes.filter(inc => inc.house === houseName);
     
-    summaryCards.forEach(card => {
-      const texts = card.textContent.trim().split('\n').filter(t => t.trim());
-      texts.forEach(text => {
-        if (text.trim() && yPos < 280) {
-          doc.setFontSize(10);
-          doc.text(text.trim(), 20, yPos);
-          yPos += 6;
-        }
-      });
-    });
-    yPos += 10;
+    exportHouseReportToPdf(doc, house, houseExpenses, houseIncomes, yPos);
+    
+  } else if (titleText.includes('Consolidado')) {
+    // Reporte consolidado
+    const startDate = document.getElementById('consolidatedStartDate').value;
+    const endDate = document.getElementById('consolidatedEndDate').value;
+    
+    exportConsolidatedReportToPdf(doc, startDate, endDate, yPos);
+    
+  } else if (titleText.includes('Ingresos')) {
+    // Reporte de ingresos
+    const startDate = document.getElementById('incomeStartDate').value;
+    const endDate = document.getElementById('incomeEndDate').value;
+    
+    exportIncomeReportToPdf(doc, startDate, endDate, yPos);
+    
+  } else if (titleText.includes('Comparativo')) {
+    // Reporte comparativo
+    const startDate = document.getElementById('comparativeStartDate').value;
+    const endDate = document.getElementById('comparativeEndDate').value;
+    
+    exportComparativeReportToPdf(doc, startDate, endDate, yPos);
   }
   
-  // Agregar tablas
-  tables.forEach((table, index) => {
+  doc.save(`${titleText.toLowerCase().replace(/\s+/g, '-')}.pdf`);
+  showNotification('PDF profesional exportado correctamente.', 'success');
+}
+
+// Función auxiliar para reporte por casa
+function exportHouseReportToPdf(doc, house, houseExpenses, houseIncomes, startY) {
+  let yPos = startY;
+  
+  // Información de la casa
+  doc.setFontSize(14);
+  doc.text(`Casa: ${house.name}`, 20, yPos);
+  yPos += 8;
+  
+  doc.setFontSize(10);
+  doc.text(`Tipo: ${house.type === 'conjunto' ? 'Conjunto Residencial' : 'Casa Independiente'}`, 20, yPos);
+  yPos += 15;
+  
+  // Resumen financiero
+  const totalExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const totalIncomes = houseIncomes.reduce((sum, inc) => sum + inc.amount, 0);
+  const balance = totalIncomes - totalExpenses;
+  
+  doc.setFillColor(248, 250, 252);
+  doc.rect(15, yPos - 5, 180, 30, 'F');
+  
+  doc.setFontSize(11);
+  doc.text(`Total Ingresos: ${formatter.format(totalIncomes)}`, 20, yPos + 5);
+  doc.text(`Total Gastos: ${formatter.format(totalExpenses)}`, 20, yPos + 15);
+  if (balance >= 0) {
+    doc.setTextColor(34, 197, 94);
+  } else {
+    doc.setTextColor(239, 68, 68);
+  }
+  doc.text(`Saldo: ${formatter.format(balance)}`, 120, yPos + 10);
+  doc.setTextColor(0, 0, 0);
+  
+  yPos += 40;
+  
+  // Tabla de gastos
+  if (houseExpenses.length > 0) {
+    doc.setFontSize(12);
+    doc.text('GASTOS DETALLADOS', 20, yPos);
+    yPos += 10;
+    
+    const expensesData = houseExpenses.map(exp => [
+      exp.date,
+      exp.description,
+      formatter.format(exp.amount)
+    ]);
+    
+    doc.autoTable({
+      startY: yPos,
+      head: [['Fecha', 'Descripción', 'Valor']],
+      body: expensesData,
+      theme: 'striped',
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontStyle: 'bold' },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 100 },
+        2: { cellWidth: 30, halign: 'right' }
+      }
+    });
+    
+    yPos = doc.lastAutoTable.finalY + 15;
+  }
+  
+  // Tabla de ingresos (solo para casas independientes)
+  if (house.type === 'independiente' && houseIncomes.length > 0) {
     if (yPos > 250) {
       doc.addPage();
       yPos = 20;
     }
     
-    const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
-    const rows = Array.from(table.querySelectorAll('tbody tr')).map(tr => 
-      Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
-    );
+    doc.setFontSize(12);
+    doc.text('INGRESOS DETALLADOS', 20, yPos);
+    yPos += 10;
     
-    if (headers.length > 0 && rows.length > 0) {
-      doc.autoTable({
-        startY: yPos,
-        head: [headers],
-        body: rows,
-        theme: 'striped',
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontStyle: 'bold' }
-      });
-      
-      yPos = doc.lastAutoTable.finalY + 15;
-    }
-  });
-  
-  // Footer
-  const pageCount = doc.internal.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.setFontSize(8);
-    doc.setTextColor(128, 128, 128);
-    doc.text(`Página ${i} de ${pageCount} - Sistema de Gestión de Casas`, 20, 290);
+    const incomesData = houseIncomes.map(inc => [
+      inc.date,
+      inc.description,
+      formatter.format(inc.amount)
+    ]);
+    
+    doc.autoTable({
+      startY: yPos,
+      head: [['Fecha', 'Descripción', 'Valor']],
+      body: incomesData,
+      theme: 'striped',
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [34, 197, 94], textColor: [255, 255, 255], fontStyle: 'bold' },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 100 },
+        2: { cellWidth: 30, halign: 'right' }
+      }
+    });
   }
-  
-  doc.save(`${titleText.toLowerCase().replace(/\s+/g, '-')}.pdf`);
-  showNotification('📄 PDF profesional exportado correctamente.', 'success');
-});
+}
+
 
   // ==================== INICIALIZACIÓN ====================
 
@@ -1691,7 +1765,9 @@ document.getElementById('exportDetailExcel').addEventListener('click', () => {
   XLSX.writeFile(wb, `detalle-${houseNameClean.toLowerCase().replace(/\s+/g, '-')}.xlsx`);
   showNotification('Excel exportado correctamente.', 'success');
 });
-// Exportar Excel profesional con todas las casas
+// 3. EXCEL PROFESIONAL POR CADA CASA
+// ===============================================
+
 function exportAllHousesToExcel() {
   const wb = XLSX.utils.book_new();
   
@@ -1769,11 +1845,27 @@ function exportAllHousesToExcel() {
     
     // Formatear hoja
     if (houseWs['!ref']) {
+      const range = XLSX.utils.decode_range(houseWs['!ref']);
+      
+      // Ancho de columnas
       houseWs['!cols'] = [
         { wch: 15 }, // Fecha
         { wch: 40 }, // Descripción  
         { wch: 15 }  // Valor
       ];
+      
+      // Formato de celdas
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cell_address = XLSX.utils.encode_cell({r: R, c: C});
+          if (!houseWs[cell_address]) continue;
+          
+          // Formato para números (columna de valores)
+          if (C === 2 && typeof houseWs[cell_address].v === 'number') {
+            houseWs[cell_address].z = '#,##0';
+          }
+        }
+      }
     }
     
     // Nombre de hoja válido (máximo 31 caracteres)
@@ -1782,8 +1874,9 @@ function exportAllHousesToExcel() {
   });
   
   XLSX.writeFile(wb, `reporte-completo-casas-${new Date().toISOString().split('T')[0]}.xlsx`);
-  showNotification('📊 Excel profesional exportado correctamente.', 'success');
+  showNotification('Excel profesional exportado correctamente.', 'success');
 }
+
 // Event listener para Excel completo
 document.getElementById('exportAllHousesExcel').addEventListener('click', exportAllHousesToExcel);
 // Reporte consolidado avanzado
