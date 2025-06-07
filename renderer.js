@@ -1900,4 +1900,263 @@ columnStyles: {
     });
   }
   console.log('Funciones del dashboard y conjunto residencial configuradas correctamente');
+// ==================== EXPORTAR EXCEL DEL DASHBOARD (AJUSTADO) ====================
+
+  // Función actualizada para exportar Excel del detalle desde dashboard
+  function exportDetailExcelAjustado() {
+    const houseExpensesDetail = document.getElementById('houseExpensesDetail');
+    if (houseExpensesDetail.classList.contains('hidden')) {
+      showNotification('Por favor, seleccione una casa para ver el detallado antes de exportar.', 'error');
+      return;
+    }
+
+    const titleElement = document.getElementById('houseExpensesTitle');
+    const titleText = titleElement.textContent;
+    const houseName = titleText.split(' - ')[1] || 'Casa';
+    
+    // Obtener datos de la casa
+    const houseNameClean = houseName.replace('Detallado de Transacciones - ', '').split(' (')[0];
+    const house = houses.find(h => h.name === houseNameClean);
+    const houseExpenses = expenses.filter(exp => exp.house === houseNameClean);
+    const houseIncomes = incomes.filter(inc => inc.house === houseNameClean);
+    
+    if (houseExpenses.length === 0 && houseIncomes.length === 0) {
+      showNotification('No hay datos para exportar.', 'warning');
+      return;
+    }
+
+    const wb = XLSX.utils.book_new();
+    
+    // Datos principales
+    const mainData = [
+      ['SISTEMA DE GESTIÓN DE CASAS'],
+      [`Detalle de ${houseNameClean}`],
+      [`Tipo: ${house ? (house.type === 'conjunto' ? 'Conjunto Residencial' : 'Casa Independiente') : 'N/A'}`],
+      [`Fecha de generación: ${new Date().toLocaleDateString('es-CO')} ${new Date().toLocaleTimeString('es-CO')}`],
+      ['']
+    ];
+
+    // LÓGICA ESPECÍFICA SEGÚN TIPO DE CASA
+    if (house && house.type === 'conjunto') {
+      // ===== CASA DE CONJUNTO: SOLO GASTOS =====
+      mainData.push(['RESUMEN FINANCIERO']);
+      mainData.push(['Concepto', 'Valor']);
+      mainData.push(['Total Gastos', houseExpenses.reduce((sum, exp) => sum + exp.amount, 0)]);
+      mainData.push(['']);
+      
+      // Solo gastos detallados
+      if (houseExpenses.length > 0) {
+        mainData.push(['GASTOS DETALLADOS']);
+        mainData.push(['Fecha', 'Descripción', 'Valor']);
+        houseExpenses.forEach(exp => {
+          mainData.push([exp.date, exp.description, exp.amount]);
+        });
+        
+        // Total al final
+        mainData.push(['']);
+        mainData.push(['TOTAL GASTOS:', '', houseExpenses.reduce((sum, exp) => sum + exp.amount, 0)]);
+      }
+      
+    } else {
+      // ===== CASA INDEPENDIENTE: GASTOS + INGRESOS =====
+      mainData.push(['RESUMEN FINANCIERO']);
+      mainData.push(['Concepto', 'Valor']);
+      mainData.push(['Total Ingresos', houseIncomes.reduce((sum, inc) => sum + inc.amount, 0)]);
+      mainData.push(['Total Gastos', houseExpenses.reduce((sum, exp) => sum + exp.amount, 0)]);
+      mainData.push(['Saldo', houseIncomes.reduce((sum, inc) => sum + inc.amount, 0) - houseExpenses.reduce((sum, exp) => sum + exp.amount, 0)]);
+      mainData.push(['']);
+      
+      // Agregar gastos
+      if (houseExpenses.length > 0) {
+        mainData.push(['GASTOS DETALLADOS']);
+        mainData.push(['Fecha', 'Descripción', 'Valor']);
+        houseExpenses.forEach(exp => {
+          mainData.push([exp.date, exp.description, exp.amount]);
+        });
+        mainData.push(['']);
+      }
+      
+      // Agregar ingresos
+      if (houseIncomes.length > 0) {
+        mainData.push(['INGRESOS DETALLADOS']);
+        mainData.push(['Fecha', 'Descripción', 'Valor']);
+        houseIncomes.forEach(inc => {
+          mainData.push([inc.date, inc.description, inc.amount]);
+        });
+      }
+    }
+    
+    const ws = XLSX.utils.aoa_to_sheet(mainData);
+    
+    // Formatear hoja
+    if (ws['!ref']) {
+      ws['!cols'] = [
+        { wch: 20 },
+        { wch: 40 },
+        { wch: 15 }
+      ];
+    }
+    
+    XLSX.utils.book_append_sheet(wb, ws, 'Detalle');
+    
+    XLSX.writeFile(wb, `detalle-${houseNameClean.toLowerCase().replace(/\s+/g, '-')}.xlsx`);
+    showNotification('📊 Excel del detalle exportado correctamente.', 'success');
+  }
+
+  // ==================== EXPORTAR EXCEL COMPLETO (AJUSTADO) ====================
+
+  // Función actualizada para exportar Excel completo con todas las casas
+  function exportAllHousesToExcelAjustado() {
+    const wb = XLSX.utils.book_new();
+    
+    // Hoja de resumen general
+    const summaryData = [
+      ['SISTEMA DE GESTIÓN DE CASAS'],
+      [`Reporte generado: ${new Date().toLocaleDateString('es-CO')} ${new Date().toLocaleTimeString('es-CO')}`],
+      [''],
+      ['RESUMEN GENERAL'],
+      ['Total Casas:', houses.length],
+      ['Casas de Conjunto:', houses.filter(h => h.type === 'conjunto').length],
+      ['Casas Independientes:', houses.filter(h => h.type === 'independiente').length],
+      ['Total Ingresos:', incomes.reduce((sum, inc) => sum + inc.amount, 0)],
+      ['Total Gastos:', expenses.reduce((sum, exp) => sum + exp.amount, 0)],
+      [''],
+      ['DETALLE POR CASA'],
+      ['Casa', 'Tipo', 'Ingresos', 'Gastos', 'Saldo/Total Gastos']
+    ];
+    
+    houses.forEach(house => {
+      const houseExpenses = expenses.filter(exp => exp.house === house.name);
+      const houseIncomes = incomes.filter(inc => inc.house === house.name);
+      const totalExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+      const totalIncomes = houseIncomes.reduce((sum, inc) => sum + inc.amount, 0);
+      
+      if (house.type === 'conjunto') {
+        // Para casas de conjunto: solo mostrar gastos
+        summaryData.push([
+          house.name,
+          'Conjunto',
+          'N/A (Fondo común)',
+          totalExpenses,
+          totalExpenses // Para conjunto mostramos solo el total de gastos
+        ]);
+      } else {
+        // Para casas independientes: mostrar ingresos, gastos y saldo
+        const balance = totalIncomes - totalExpenses;
+        summaryData.push([
+          house.name,
+          'Independiente',
+          totalIncomes,
+          totalExpenses,
+          balance
+        ]);
+      }
+    });
+    
+    const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, 'Resumen');
+    
+    // Hoja para cada casa (ajustada según tipo)
+    houses.forEach(house => {
+      const houseExpenses = expenses.filter(exp => exp.house === house.name);
+      const houseIncomes = incomes.filter(inc => inc.house === house.name);
+      
+      const houseData = [
+        [`DETALLE - ${house.name.toUpperCase()}`],
+        [`Tipo: ${house.type === 'conjunto' ? 'Conjunto Residencial' : 'Casa Independiente'}`],
+        [`Fecha: ${new Date().toLocaleDateString('es-CO')}`],
+        ['']
+      ];
+
+      if (house.type === 'conjunto') {
+        // ===== CASA DE CONJUNTO: SOLO GASTOS =====
+        houseData.push(['RESUMEN FINANCIERO']);
+        houseData.push(['Concepto', 'Valor']);
+        houseData.push(['Total Gastos', houseExpenses.reduce((sum, exp) => sum + exp.amount, 0)]);
+        houseData.push(['Nota: Los gastos se debitan del fondo común del conjunto', '']);
+        houseData.push(['']);
+        
+        // Solo gastos detallados
+        if (houseExpenses.length > 0) {
+          houseData.push(['GASTOS DETALLADOS']);
+          houseData.push(['Fecha', 'Descripción', 'Valor']);
+          houseExpenses.forEach(exp => {
+            houseData.push([exp.date, exp.description, exp.amount]);
+          });
+          
+          // Total al final
+          houseData.push(['']);
+          houseData.push(['TOTAL GASTOS:', '', houseExpenses.reduce((sum, exp) => sum + exp.amount, 0)]);
+        } else {
+          houseData.push(['No hay gastos registrados para esta casa']);
+        }
+        
+      } else {
+        // ===== CASA INDEPENDIENTE: GASTOS + INGRESOS =====
+        houseData.push(['RESUMEN FINANCIERO']);
+        houseData.push(['Concepto', 'Valor']);
+        houseData.push(['Total Ingresos', houseIncomes.reduce((sum, inc) => sum + inc.amount, 0)]);
+        houseData.push(['Total Gastos', houseExpenses.reduce((sum, exp) => sum + exp.amount, 0)]);
+        houseData.push(['Saldo', houseIncomes.reduce((sum, inc) => sum + inc.amount, 0) - houseExpenses.reduce((sum, exp) => sum + exp.amount, 0)]);
+        houseData.push(['']);
+        
+        // Gastos
+        if (houseExpenses.length > 0) {
+          houseData.push(['GASTOS DETALLADOS']);
+          houseData.push(['Fecha', 'Descripción', 'Valor']);
+          houseExpenses.forEach(exp => {
+            houseData.push([exp.date, exp.description, exp.amount]);
+          });
+          houseData.push(['']);
+        }
+        
+        // Ingresos
+        if (houseIncomes.length > 0) {
+          houseData.push(['INGRESOS DETALLADOS']);
+          houseData.push(['Fecha', 'Descripción', 'Valor']);
+          houseIncomes.forEach(inc => {
+            houseData.push([inc.date, inc.description, inc.amount]);
+          });
+        }
+      }
+      
+      const houseWs = XLSX.utils.aoa_to_sheet(houseData);
+      
+      // Formatear hoja
+      if (houseWs['!ref']) {
+        houseWs['!cols'] = [
+          { wch: 15 }, // Fecha
+          { wch: 40 }, // Descripción  
+          { wch: 15 }  // Valor
+        ];
+      }
+      
+      // Nombre de hoja válido (máximo 31 caracteres)
+      const sheetName = house.name.substring(0, 31).replace(/[\\/:*?[\]]/g, '');
+      XLSX.utils.book_append_sheet(wb, houseWs, sheetName);
+    });
+    
+    XLSX.writeFile(wb, `reporte-completo-casas-${new Date().toISOString().split('T')[0]}.xlsx`);
+    showNotification('📊 Excel profesional exportado correctamente.', 'success');
+  }
+
+  // ==================== REEMPLAZAR EVENT LISTENERS ====================
+
+  // Reemplazar event listener para Excel del dashboard
+  const exportDetailExcelBtnOld = document.getElementById('exportDetailExcel');
+  if (exportDetailExcelBtnOld) {
+    exportDetailExcelBtnOld.replaceWith(exportDetailExcelBtnOld.cloneNode(true));
+    const exportDetailExcelBtnNew = document.getElementById('exportDetailExcel');
+    exportDetailExcelBtnNew.addEventListener('click', exportDetailExcelAjustado);
+  }
+
+  // Reemplazar event listener para Excel completo
+  const exportAllHousesExcelBtnOld = document.getElementById('exportAllHousesExcel');
+  if (exportAllHousesExcelBtnOld) {
+    exportAllHousesExcelBtnOld.replaceWith(exportAllHousesExcelBtnOld.cloneNode(true));
+    const exportAllHousesExcelBtnNew = document.getElementById('exportAllHousesExcel');
+    exportAllHousesExcelBtnNew.addEventListener('click', exportAllHousesToExcelAjustado);
+  }
+
+  console.log('Funciones de Excel ajustadas para casas de conjunto (solo gastos) vs independientes (gastos + ingresos)');
 });
