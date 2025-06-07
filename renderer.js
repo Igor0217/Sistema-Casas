@@ -1024,1049 +1024,290 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Generar reporte consolidado
-  document.getElementById('generateConsolidatedReport').addEventListener('click', () => {
-    const startDate = new Date(document.getElementById('consolidatedStartDate').value);
-    const endDate = new Date(document.getElementById('consolidatedEndDate').value);
-    
-    const filteredExpenses = expenses.filter(exp => {
-      const expDate = new Date(exp.date);
-      return expDate >= startDate && expDate <= endDate;
-    });
-    
-    const filteredIncomes = incomes.filter(inc => {
-      const incDate = new Date(inc.date);
-      return incDate >= startDate && incDate <= endDate;
-    });
-
-    const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-    const totalIncomes = filteredIncomes.reduce((sum, inc) => sum + inc.amount, 0);
-    const balance = totalIncomes - totalExpenses;
-
-    // Separar por conjunto e independientes
-    const conjuntoHouses = getHousesByType('conjunto').map(h => h.name);
-    const independientesHouses = getHousesByType('independiente').map(h => h.name);
-
-    const conjuntoExpenses = filteredExpenses.filter(exp => conjuntoHouses.includes(exp.house));
-    const independientesExpenses = filteredExpenses.filter(exp => independientesHouses.includes(exp.house));
-    
-    const conjuntoIncomes = filteredIncomes.filter(inc => !inc.house || inc.house === '');
-    const independientesIncomes = filteredIncomes.filter(inc => inc.house && independientesHouses.includes(inc.house));
-
-    const conjuntoTotalExpenses = conjuntoExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-    const conjuntoTotalIncomes = conjuntoIncomes.reduce((sum, inc) => sum + inc.amount, 0);
-    const conjuntoBalance = conjuntoTotalIncomes - conjuntoTotalExpenses;
-
-    const independientesTotalExpenses = independientesExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-    const independientesTotalIncomes = independientesIncomes.reduce((sum, inc) => sum + inc.amount, 0);
-    const independientesBalance = independientesTotalIncomes - independientesTotalExpenses;
-
-    let reportHTML = `
-      <div class="fade-in">
-        <h3 class="text-xl font-bold mb-4">Reporte Consolidado</h3>
-        <p class="text-sm text-gray-600 mb-6">Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
-        
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div class="bg-green-100 p-4 rounded-lg">
-            <h4 class="font-semibold text-green-800">Total Ingresos</h4>
-            <p class="text-2xl font-bold text-green-600">${formatter.format(totalIncomes)}</p>
-          </div>
-          <div class="bg-red-100 p-4 rounded-lg">
-            <h4 class="font-semibold text-red-800">Total Gastos</h4>
-            <p class="text-2xl font-bold text-red-600">${formatter.format(totalExpenses)}</p>
-          </div>
-          <div class="bg-yellow-100 p-4 rounded-lg">
-            <h4 class="font-semibold text-yellow-800">Saldo General</h4>
-            <p class="text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}">${formatter.format(balance)}</p>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div class="bg-blue-50 p-4 rounded-lg">
-            <h4 class="text-lg font-semibold text-blue-800 mb-3">Conjunto Residencial</h4>
-            <div class="space-y-2">
-              <div class="flex justify-between">
-                <span>Ingresos:</span>
-                <span class="font-semibold">${formatter.format(conjuntoTotalIncomes)}</span>
-              </div>
-              <div class="flex justify-between">
-                <span>Gastos:</span>
-                <span class="font-semibold">${formatter.format(conjuntoTotalExpenses)}</span>
-              </div>
-              <div class="flex justify-between border-t pt-2">
-                <span class="font-bold">Saldo:</span>
-                <span class="font-bold ${conjuntoBalance >= 0 ? 'text-green-600' : 'text-red-600'}">${formatter.format(conjuntoBalance)}</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="bg-pink-50 p-4 rounded-lg">
-            <h4 class="text-lg font-semibold text-pink-800 mb-3">Casas Independientes</h4>
-            <div class="space-y-2">
-              <div class="flex justify-between">
-                <span>Ingresos:</span>
-                <span class="font-semibold">${formatter.format(independientesTotalIncomes)}</span>
-              </div>
-              <div class="flex justify-between">
-                <span>Gastos:</span>
-                <span class="font-semibold">${formatter.format(independientesTotalExpenses)}</span>
-              </div>
-              <div class="flex justify-between border-t pt-2">
-                <span class="font-bold">Saldo:</span>
-                <span class="font-bold ${independientesBalance >= 0 ? 'text-green-600' : 'text-red-600'}">${formatter.format(independientesBalance)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="mb-6">
-          <h4 class="text-lg font-semibold mb-3">Gastos por Casa</h4>
-          <div class="overflow-x-auto">
-            <table class="w-full border-collapse border">
-              <thead>
-                <tr class="bg-gray-100">
-                  <th class="border p-2 text-left">Casa</th>
-                  <th class="border p-2 text-left">Tipo</th>
-                  <th class="border p-2 text-right">Total Gastos</th>
-                </tr>
-              </thead>
-              <tbody>
-    `;
-
-    houses.forEach(house => {
-      const houseExpenses = filteredExpenses.filter(exp => exp.house === house.name);
-      const totalHouseExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const generateHouseReportBtn = document.getElementById('generateHouseReport');
+  if (generateHouseReportBtn) {
+    generateHouseReportBtn.addEventListener('click', () => {
+      const houseName = document.getElementById('reportHouse').value;
+      if (!houseName) {
+        showNotification('Por favor, seleccione una casa.', 'error');
+        return;
+      }
+      const house = houses.find(h => h.name === houseName);
+      const houseExpenses = expenses.filter(exp => exp.house === houseName);
+      const houseIncomes = incomes.filter(inc => inc.house === houseName);
       
-      if (totalHouseExpenses > 0) {
+      const totalExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+      const totalIncomes = houseIncomes.reduce((sum, inc) => sum + inc.amount, 0);
+      const balance = totalIncomes - totalExpenses;
+      let reportHTML = `
+        <div class="fade-in">
+          <h3 class="text-xl font-bold mb-4">Reporte Detallado - ${houseName}</h3>
+          <div class="bg-${house.type === 'conjunto' ? 'blue' : 'pink'}-50 p-4 rounded-lg mb-6">
+            <p class="text-sm font-medium">Tipo: <span class="font-bold">${house.type === 'conjunto' ? 'Conjunto Residencial' : 'Casa Independiente'}</span></p>
+            ${house.type === 'conjunto' ? '<p class="text-xs text-blue-600 mt-2">Los gastos de esta casa se debitan del fondo común del conjunto.</p>' : '<p class="text-xs text-pink-600 mt-2">Esta casa maneja sus ingresos y gastos de forma independiente.</p>'}
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-green-100 p-4 rounded-lg">
+              <h4 class="font-semibold text-green-800">Total Ingresos</h4>
+              <p class="text-2xl font-bold text-green-600">${formatter.format(totalIncomes)}</p>
+            </div>
+            <div class="bg-red-100 p-4 rounded-lg">
+              <h4 class="font-semibold text-red-800">Total Gastos</h4>
+              <p class="text-2xl font-bold text-red-600">${formatter.format(totalExpenses)}</p>
+            </div>
+            <div class="bg-yellow-100 p-4 rounded-lg">
+              <h4 class="font-semibold text-yellow-800">Saldo</h4>
+              <p class="text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}">${formatter.format(balance)}</p>
+            </div>
+          </div>
+      `;
+      if (house.type === 'independiente' && houseIncomes.length > 0) {
         reportHTML += `
-          <tr>
-            <td class="border p-2">${house.name}</td>
-            <td class="border p-2">
-              <span class="px-2 py-1 rounded text-xs text-white ${house.type === 'conjunto' ? 'bg-blue-500' : 'bg-pink-500'}">
-                ${house.type === 'conjunto' ? 'Conjunto' : 'Independiente'}
-              </span>
-            </td>
-            <td class="border p-2 text-right">${formatter.format(totalHouseExpenses)}</td>
-          </tr>
+          <div class="mb-6">
+            <h4 class="text-lg font-semibold mb-3">Ingresos</h4>
+            <div class="overflow-x-auto">
+              <table class="w-full border-collapse border">
+                <thead>
+                  <tr class="bg-gray-100">
+                    <th class="border p-2 text-left">Fecha</th>
+                    <th class="border p-2 text-left">Descripción</th>
+                    <th class="border p-2 text-right">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${houseIncomes.map(inc => `
+                    <tr>
+                      <td class="border p-2">${inc.date}</td>
+                      <td class="border p-2">${inc.description}</td>
+                      <td class="border p-2 text-right">${formatter.format(inc.amount)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
         `;
       }
-    });
-
-    reportHTML += `
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    `;
-    
-    document.getElementById('reportContent').innerHTML = reportHTML;
-    document.getElementById('reportContent').scrollIntoView({ behavior: 'smooth' });
-  });
-
-  // Generar reporte de ingresos
-  document.getElementById('generateIncomeReport').addEventListener('click', () => {
-    const startDate = new Date(document.getElementById('incomeStartDate').value);
-    const endDate = new Date(document.getElementById('incomeEndDate').value);
-    
-    const filteredIncomes = incomes.filter(inc => {
-      const incDate = new Date(inc.date);
-      return incDate >= startDate && incDate <= endDate;
-    });
-
-    const totalIncomes = filteredIncomes.reduce((sum, inc) => sum + inc.amount, 0);
-
-    let reportHTML = `
-      <div class="fade-in">
-        <h3 class="text-xl font-bold mb-4">Reporte Detallado de Ingresos</h3>
-        <p class="text-sm text-gray-600 mb-4">Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
-        <p class="text-lg font-semibold mb-6">Total Ingresos: ${formatter.format(totalIncomes)}</p>
-        
-        <div class="overflow-x-auto">
-          <table class="w-full border-collapse border">
-            <thead>
-              <tr class="bg-gray-100">
-                <th class="border p-2 text-left">Fecha</th>
-                <th class="border p-2 text-left">Descripción</th>
-                <th class="border p-2 text-left">Origen</th>
-                <th class="border p-2 text-right">Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${filteredIncomes.map(inc => `
-                <tr>
-                  <td class="border p-2">${inc.date}</td>
-                  <td class="border p-2">${inc.description}</td>
-                  <td class="border p-2">${inc.house || 'Conjunto Residencial'}</td>
-                  <td class="border p-2 text-right">${formatter.format(inc.amount)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-    
-    document.getElementById('reportContent').innerHTML = reportHTML;
-    document.getElementById('reportContent').scrollIntoView({ behavior: 'smooth' });
-  });
-
-  // Generar reporte comparativo
-  document.getElementById('generateComparativeReport').addEventListener('click', () => {
-    const startDate = new Date(document.getElementById('comparativeStartDate').value);
-    const endDate = new Date(document.getElementById('comparativeEndDate').value);
-    
-    // Filtrar datos por período
-    const filteredExpenses = expenses.filter(exp => {
-      const expDate = new Date(exp.date);
-      return expDate >= startDate && expDate <= endDate;
-    });
-    
-    const filteredIncomes = incomes.filter(inc => {
-      const incDate = new Date(inc.date);
-      return incDate >= startDate && incDate <= endDate;
-    });
-
-    // Datos del conjunto
-    const conjuntoHouses = getHousesByType('conjunto');
-    const conjuntoIncomes = filteredIncomes.filter(inc => !inc.house || inc.house === '');
-    const conjuntoExpenses = filteredExpenses.filter(exp => 
-      conjuntoHouses.some(h => h.name === exp.house)
-    );
-
-    // Datos de independientes
-    const independientesHouses = getHousesByType('independiente');
-    const independientesIncomes = filteredIncomes.filter(inc => 
-      inc.house && independientesHouses.some(h => h.name === inc.house)
-    );
-    const independientesExpenses = filteredExpenses.filter(exp => 
-      independientesHouses.some(h => h.name === exp.house)
-    );
-
-    // Cálculos
-    const conjuntoTotalIncomes = conjuntoIncomes.reduce((sum, inc) => sum + inc.amount, 0);
-    const conjuntoTotalExpenses = conjuntoExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-    const conjuntoBalance = conjuntoTotalIncomes - conjuntoTotalExpenses;
-
-    const independientesTotalIncomes = independientesIncomes.reduce((sum, inc) => sum + inc.amount, 0);
-    const independientesTotalExpenses = independientesExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-    const independientesBalance = independientesTotalIncomes - independientesTotalExpenses;
-
-    let reportHTML = `
-      <div class="fade-in">
-        <h3 class="text-xl font-bold mb-4">Reporte Comparativo: Conjunto vs Independientes</h3>
-        <p class="text-sm text-gray-600 mb-6">Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
-        
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <!-- Conjunto Residencial -->
-          <div class="bg-blue-50 p-6 rounded-xl">
-            <h4 class="text-lg font-bold text-blue-800 mb-4 flex items-center">
-              <span class="mr-2">🏘️</span>
-              Conjunto Residencial
-            </h4>
-            <div class="space-y-3">
-              <div class="bg-white p-3 rounded-lg">
-                <div class="flex justify-between items-center">
-                  <span class="text-sm">Casas:</span>
-                  <span class="font-semibold">${conjuntoHouses.length}</span>
-                </div>
-              </div>
-              <div class="bg-white p-3 rounded-lg">
-                <div class="flex justify-between items-center">
-                  <span class="text-sm">Ingresos:</span>
-                  <span class="font-semibold text-green-600">${formatter.format(conjuntoTotalIncomes)}</span>
-                </div>
-              </div>
-              <div class="bg-white p-3 rounded-lg">
-                <div class="flex justify-between items-center">
-                  <span class="text-sm">Gastos:</span>
-                  <span class="font-semibold text-red-600">${formatter.format(conjuntoTotalExpenses)}</span>
-                </div>
-              </div>
-              <div class="bg-white p-3 rounded-lg border-2 border-blue-200">
-                <div class="flex justify-between items-center">
-                  <span class="font-bold">Saldo:</span>
-                  <span class="font-bold text-lg ${conjuntoBalance >= 0 ? 'text-green-600' : 'text-red-600'}">${formatter.format(conjuntoBalance)}</span>
-                </div>
-              </div>
+      if (houseExpenses.length > 0) {
+        reportHTML += `
+          <div class="mb-6">
+            <h4 class="text-lg font-semibold mb-3">Gastos</h4>
+            <div class="overflow-x-auto">
+              <table class="w-full border-collapse border">
+                <thead>
+                  <tr class="bg-gray-100">
+                    <th class="border p-2 text-left">Fecha</th>
+                    <th class="border p-2 text-left">Descripción</th>
+                    <th class="border p-2 text-right">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${houseExpenses.map(exp => `
+                    <tr>
+                      <td class="border p-2">${exp.date}</td>
+                      <td class="border p-2">${exp.description}</td>
+                      <td class="border p-2 text-right">${formatter.format(exp.amount)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
             </div>
           </div>
-
-          <!-- Casas Independientes -->
-          <div class="bg-pink-50 p-6 rounded-xl">
-            <h4 class="text-lg font-bold text-pink-800 mb-4 flex items-center">
-              <span class="mr-2">🏠</span>
-              Casas Independientes
-            </h4>
-            <div class="space-y-3">
-              <div class="bg-white p-3 rounded-lg">
-                <div class="flex justify-between items-center">
-                  <span class="text-sm">Casas:</span>
-                  <span class="font-semibold">${independientesHouses.length}</span>
-                </div>
-              </div>
-              <div class="bg-white p-3 rounded-lg">
-                <div class="flex justify-between items-center">
-                  <span class="text-sm">Ingresos:</span>
-                  <span class="font-semibold text-green-600">${formatter.format(independientesTotalIncomes)}</span>
-                </div>
-              </div>
-              <div class="bg-white p-3 rounded-lg">
-                <div class="flex justify-between items-center">
-                  <span class="text-sm">Gastos:</span>
-                  <span class="font-semibold text-red-600">${formatter.format(independientesTotalExpenses)}</span>
-                </div>
-              </div>
-              <div class="bg-white p-3 rounded-lg border-2 border-pink-200">
-                <div class="flex justify-between items-center">
-                  <span class="font-bold">Saldo:</span>
-                  <span class="font-bold text-lg ${independientesBalance >= 0 ? 'text-green-600' : 'text-red-600'}">${formatter.format(independientesBalance)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Detalle por Casa Independiente -->
-        ${independientesHouses.length > 0 ? `
-        <div class="mb-6">
-          <h4 class="text-lg font-semibold mb-3">Detalle de Casas Independientes</h4>
+        `;
+      }
+      reportHTML += '</div>';
+      
+      document.getElementById('reportContent').innerHTML = reportHTML;
+      document.getElementById('reportContent').scrollIntoView({ behavior: 'smooth' });
+    });
+  }
+  // Generar reporte de ingresos (SÍ existe en tu HTML)
+  const generateIncomeReportBtn = document.getElementById('generateIncomeReport');
+  if (generateIncomeReportBtn) {
+    generateIncomeReportBtn.addEventListener('click', () => {
+      const startDate = new Date(document.getElementById('incomeStartDate').value);
+      const endDate = new Date(document.getElementById('incomeEndDate').value);
+      
+      const filteredIncomes = incomes.filter(inc => {
+        const incDate = new Date(inc.date);
+        return incDate >= startDate && incDate <= endDate;
+      });
+      const totalIncomes = filteredIncomes.reduce((sum, inc) => sum + inc.amount, 0);
+      let reportHTML = `
+        <div class="fade-in">
+          <h3 class="text-xl font-bold mb-4">Reporte Detallado de Ingresos</h3>
+          <p class="text-sm text-gray-600 mb-4">Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
+          <p class="text-lg font-semibold mb-6">Total Ingresos: ${formatter.format(totalIncomes)}</p>
+          
           <div class="overflow-x-auto">
             <table class="w-full border-collapse border">
               <thead>
                 <tr class="bg-gray-100">
-                  <th class="border p-2 text-left">Casa</th>
-                  <th class="border p-2 text-right">Ingresos</th>
-                  <th class="border p-2 text-right">Gastos</th>
-                  <th class="border p-2 text-right">Saldo</th>
+                  <th class="border p-2 text-left">Fecha</th>
+                  <th class="border p-2 text-left">Descripción</th>
+                  <th class="border p-2 text-left">Origen</th>
+                  <th class="border p-2 text-right">Valor</th>
                 </tr>
               </thead>
               <tbody>
-                ${independientesHouses.map(house => {
-                  const houseIncomes = independientesIncomes.filter(inc => inc.house === house.name);
-                  const houseExpenses = independientesExpenses.filter(exp => exp.house === house.name);
-                  const houseIncomesTotal = houseIncomes.reduce((sum, inc) => sum + inc.amount, 0);
-                  const houseExpensesTotal = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-                  const houseBalance = houseIncomesTotal - houseExpensesTotal;
-                  
-                  return `
-                    <tr>
-                      <td class="border p-2 font-medium">${house.name}</td>
-                      <td class="border p-2 text-right text-green-600">${formatter.format(houseIncomesTotal)}</td>
-                      <td class="border p-2 text-right text-red-600">${formatter.format(houseExpensesTotal)}</td>
-                      <td class="border p-2 text-right font-semibold ${houseBalance >= 0 ? 'text-green-600' : 'text-red-600'}">${formatter.format(houseBalance)}</td>
-                    </tr>
-                  `;
-                }).join('')}
+                ${filteredIncomes.map(inc => `
+                  <tr>
+                    <td class="border p-2">${inc.date}</td>
+                    <td class="border p-2">${inc.description}</td>
+                    <td class="border p-2">${inc.house || 'Conjunto Residencial'}</td>
+                    <td class="border p-2 text-right">${formatter.format(inc.amount)}</td>
+                  </tr>
+                `).join('')}
               </tbody>
             </table>
           </div>
         </div>
-        ` : ''}
-
-        <!-- Análisis -->
-        <div class="bg-gray-50 p-4 rounded-lg">
-          <h4 class="text-lg font-semibold mb-3">Análisis Comparativo</h4>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <h5 class="font-medium text-blue-800">Conjunto Residencial</h5>
-              <ul class="list-disc list-inside space-y-1 text-gray-600">
-                <li>Manejo centralizado de fondos</li>
-                <li>Gastos distribuidos entre ${conjuntoHouses.length} casas</li>
-                <li>${conjuntoBalance >= 0 ? 'Saldo positivo' : 'Déficit'} de ${formatter.format(Math.abs(conjuntoBalance))}</li>
-              </ul>
+      `;
+      
+      document.getElementById('reportContent').innerHTML = reportHTML;
+      document.getElementById('reportContent').scrollIntoView({ behavior: 'smooth' });
+    });
+  }
+  // Generar reporte comparativo (SÍ existe en tu HTML)
+  const generateComparativeReportBtn = document.getElementById('generateComparativeReport');
+  if (generateComparativeReportBtn) {
+    generateComparativeReportBtn.addEventListener('click', () => {
+      const startDate = new Date(document.getElementById('comparativeStartDate').value);
+      const endDate = new Date(document.getElementById('comparativeEndDate').value);
+      
+      // Filtrar datos por período
+      const filteredExpenses = expenses.filter(exp => {
+        const expDate = new Date(exp.date);
+        return expDate >= startDate && expDate <= endDate;
+      });
+      
+      const filteredIncomes = incomes.filter(inc => {
+        const incDate = new Date(inc.date);
+        return incDate >= startDate && incDate <= endDate;
+      });
+      // Datos del conjunto
+      const conjuntoHouses = getHousesByType('conjunto');
+      const conjuntoIncomes = filteredIncomes.filter(inc => !inc.house || inc.house === '');
+      const conjuntoExpenses = filteredExpenses.filter(exp => 
+        conjuntoHouses.some(h => h.name === exp.house)
+      );
+      // Datos de independientes
+      const independientesHouses = getHousesByType('independiente');
+      const independientesIncomes = filteredIncomes.filter(inc => 
+        inc.house && independientesHouses.some(h => h.name === inc.house)
+      );
+      const independientesExpenses = filteredExpenses.filter(exp => 
+        independientesHouses.some(h => h.name === exp.house)
+      );
+      // Cálculos
+      const conjuntoTotalIncomes = conjuntoIncomes.reduce((sum, inc) => sum + inc.amount, 0);
+      const conjuntoTotalExpenses = conjuntoExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+      const conjuntoBalance = conjuntoTotalIncomes - conjuntoTotalExpenses;
+      const independientesTotalIncomes = independientesIncomes.reduce((sum, inc) => sum + inc.amount, 0);
+      const independientesTotalExpenses = independientesExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+      const independientesBalance = independientesTotalIncomes - independientesTotalExpenses;
+      let reportHTML = `
+        <div class="fade-in">
+          <h3 class="text-xl font-bold mb-4">Reporte Comparativo: Conjunto vs Independientes</h3>
+          <p class="text-sm text-gray-600 mb-6">Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
+          
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Conjunto Residencial -->
+            <div class="bg-blue-50 p-6 rounded-xl">
+              <h4 class="text-lg font-bold text-blue-800 mb-4 flex items-center">
+                <span class="mr-2">🏘️</span>
+                Conjunto Residencial
+              </h4>
+              <div class="space-y-3">
+                <div class="bg-white p-3 rounded-lg">
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Casas:</span>
+                    <span class="font-semibold">${conjuntoHouses.length}</span>
+                  </div>
+                </div>
+                <div class="bg-white p-3 rounded-lg">
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Ingresos:</span>
+                    <span class="font-semibold text-green-600">${formatter.format(conjuntoTotalIncomes)}</span>
+                  </div>
+                </div>
+                <div class="bg-white p-3 rounded-lg">
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Gastos:</span>
+                    <span class="font-semibold text-red-600">${formatter.format(conjuntoTotalExpenses)}</span>
+                  </div>
+                </div>
+                <div class="bg-white p-3 rounded-lg border-2 border-blue-200">
+                  <div class="flex justify-between items-center">
+                    <span class="font-bold">Saldo:</span>
+                    <span class="font-bold text-lg ${conjuntoBalance >= 0 ? 'text-green-600' : 'text-red-600'}">${formatter.format(conjuntoBalance)}</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <h5 class="font-medium text-pink-800">Casas Independientes</h5>
-              <ul class="list-disc list-inside space-y-1 text-gray-600">
-                <li>Gestión individual de recursos</li>
-                <li>${independientesHouses.length} casas con autonomía financiera</li>
-                <li>${independientesBalance >= 0 ? 'Saldo total positivo' : 'Déficit total'} de ${formatter.format(Math.abs(independientesBalance))}</li>
-              </ul>
+            <!-- Casas Independientes -->
+            <div class="bg-pink-50 p-6 rounded-xl">
+              <h4 class="text-lg font-bold text-pink-800 mb-4 flex items-center">
+                <span class="mr-2">🏠</span>
+                Casas Independientes
+              </h4>
+              <div class="space-y-3">
+                <div class="bg-white p-3 rounded-lg">
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Casas:</span>
+                    <span class="font-semibold">${independientesHouses.length}</span>
+                  </div>
+                </div>
+                <div class="bg-white p-3 rounded-lg">
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Ingresos:</span>
+                    <span class="font-semibold text-green-600">${formatter.format(independientesTotalIncomes)}</span>
+                  </div>
+                </div>
+                <div class="bg-white p-3 rounded-lg">
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Gastos:</span>
+                    <span class="font-semibold text-red-600">${formatter.format(independientesTotalExpenses)}</span>
+                  </div>
+                </div>
+                <div class="bg-white p-3 rounded-lg border-2 border-pink-200">
+                  <div class="flex justify-between items-center">
+                    <span class="font-bold">Saldo:</span>
+                    <span class="font-bold text-lg ${independientesBalance >= 0 ? 'text-green-600' : 'text-red-600'}">${formatter.format(independientesBalance)}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    `;
-    
-    document.getElementById('reportContent').innerHTML = reportHTML;
-    document.getElementById('reportContent').scrollIntoView({ behavior: 'smooth' });
-  });
-
+      `;
+      
+      document.getElementById('reportContent').innerHTML = reportHTML;
+      document.getElementById('reportContent').scrollIntoView({ behavior: 'smooth' });
+    });
+  }
+  // Generar reporte avanzado (SÍ existe en tu HTML)
+  const generateAdvancedReportBtn = document.getElementById('generateAdvancedReport');
+  if (generateAdvancedReportBtn) {
+    generateAdvancedReportBtn.addEventListener('click', () => {
+      const startDate = new Date(document.getElementById('consolidatedAdvancedStartDate').value);
+      const endDate = new Date(document.getElementById('consolidatedAdvancedEndDate').value);
+      const reportType = document.getElementById('consolidatedType').value;
+      
+      let reportHTML = `
+        <div class="fade-in">
+          <h3 class="text-xl font-bold mb-4">Reporte Avanzado - ${reportType}</h3>
+          <p class="text-sm text-gray-600 mb-6">Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
+          <p class="text-center py-8">Funcionalidad avanzada disponible.</p>
+        </div>
+      `;
+      
+      document.getElementById('reportContent').innerHTML = reportHTML;
+      document.getElementById('reportContent').scrollIntoView({ behavior: 'smooth' });
+    });
+  }
   // ==================== FUNCIONES DE EXPORTACIÓN ====================
-
-  // Backup
-  document.getElementById('backupBtn').addEventListener('click', () => {
-    const data = { houses, expenses, incomes };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `backup-casas-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showNotification('Backup descargado correctamente.', 'success');
-  });
-
-  // Importar Backup
-  document.getElementById('importBtn').addEventListener('click', () => {
-    document.getElementById('importBackup').click();
-  });
-
-  document.getElementById('importBackup').addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = JSON.parse(event.target.result);
-        houses = data.houses || [];
-        expenses = data.expenses || [];
-        incomes = data.incomes || [];
-        
-        // Migrar datos si es necesario
-        migrateOldData();
-        
-        saveData();
-        updateAllViews();
-        showNotification('Backup importado correctamente.', 'success');
-      } catch (err) {
-        showNotification('Error al importar el backup. Asegúrese de que el archivo sea válido.', 'error');
-      }
-    };
-    reader.readAsText(file);
-  });
-
-  // Sincronizar con Firestore
-  document.getElementById('syncGoogleDrive').addEventListener('click', () => {
-    console.log('Botón de sincronización presionado');
-    saveDataToFirestore();
-  });
-
-  // Exportar a PDF (función básica - se puede expandir)
-  function exportProfessionalPdf() {
-  const reportContent = document.getElementById('reportContent');
-  if (reportContent.innerHTML.trim() === '') {
-    showNotification('Por favor, genere un reporte antes de exportar a PDF.', 'error');
-    return;
-  }
-
-  const doc = new jsPDF();
-  const title = reportContent.querySelector('h3');
-  const titleText = title ? title.textContent : 'Reporte';
-  
-  // Header profesional
-  doc.setFillColor(59, 130, 246); // Azul
-  doc.rect(0, 0, 220, 40, 'F');
-  
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
-  doc.text('SISTEMA DE GESTIÓN DE CASAS', 20, 15);
-  
-  doc.setFontSize(14);
-  doc.text(titleText, 20, 25);
-  
-  doc.setFontSize(10);
-  doc.text(`Generado: ${new Date().toLocaleDateString('es-CO')} ${new Date().toLocaleTimeString('es-CO')}`, 20, 35);
-  
-  // Resetear color de texto
-  doc.setTextColor(0, 0, 0);
-  let yPos = 50;
-  
-  // Detectar tipo de reporte y agregar contenido
-  if (titleText.includes('Reporte Detallado -')) {
-    // Reporte por casa
-    const houseName = titleText.split(' - ')[1];
-    const house = houses.find(h => h.name === houseName);
-    const houseExpenses = expenses.filter(exp => exp.house === houseName);
-    const houseIncomes = incomes.filter(inc => inc.house === houseName);
-    
-    exportHouseReportToPdf(doc, house, houseExpenses, houseIncomes, yPos);
-    
-  } else if (titleText.includes('Consolidado')) {
-    // Reporte consolidado
-    const startDate = document.getElementById('consolidatedStartDate').value;
-    const endDate = document.getElementById('consolidatedEndDate').value;
-    
-    exportConsolidatedReportToPdf(doc, startDate, endDate, yPos);
-    
-  } else if (titleText.includes('Ingresos')) {
-    // Reporte de ingresos
-    const startDate = document.getElementById('incomeStartDate').value;
-    const endDate = document.getElementById('incomeEndDate').value;
-    
-    exportIncomeReportToPdf(doc, startDate, endDate, yPos);
-    
-  } else if (titleText.includes('Comparativo')) {
-    // Reporte comparativo
-    const startDate = document.getElementById('comparativeStartDate').value;
-    const endDate = document.getElementById('comparativeEndDate').value;
-    
-    exportComparativeReportToPdf(doc, startDate, endDate, yPos);
-  }
-  
-  doc.save(`${titleText.toLowerCase().replace(/\s+/g, '-')}.pdf`);
-  showNotification('PDF profesional exportado correctamente.', 'success');
-}
-
-// Función auxiliar para reporte por casa
-function exportHouseReportToPdf(doc, house, houseExpenses, houseIncomes, startY) {
-  let yPos = startY;
-  
-  // Información de la casa
-  doc.setFontSize(14);
-  doc.text(`Casa: ${house.name}`, 20, yPos);
-  yPos += 8;
-  
-  doc.setFontSize(10);
-  doc.text(`Tipo: ${house.type === 'conjunto' ? 'Conjunto Residencial' : 'Casa Independiente'}`, 20, yPos);
-  yPos += 15;
-  
-  // Resumen financiero
-  const totalExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-  const totalIncomes = houseIncomes.reduce((sum, inc) => sum + inc.amount, 0);
-  const balance = totalIncomes - totalExpenses;
-  
-  doc.setFillColor(248, 250, 252);
-  doc.rect(15, yPos - 5, 180, 30, 'F');
-  
-  doc.setFontSize(11);
-  doc.text(`Total Ingresos: ${formatter.format(totalIncomes)}`, 20, yPos + 5);
-  doc.text(`Total Gastos: ${formatter.format(totalExpenses)}`, 20, yPos + 15);
-  if (balance >= 0) {
-    doc.setTextColor(34, 197, 94);
-  } else {
-    doc.setTextColor(239, 68, 68);
-  }
-  doc.text(`Saldo: ${formatter.format(balance)}`, 120, yPos + 10);
-  doc.setTextColor(0, 0, 0);
-  
-  yPos += 40;
-  
-  // Tabla de gastos
-  if (houseExpenses.length > 0) {
-    doc.setFontSize(12);
-    doc.text('GASTOS DETALLADOS', 20, yPos);
-    yPos += 10;
-    
-    const expensesData = houseExpenses.map(exp => [
-      exp.date,
-      exp.description,
-      formatter.format(exp.amount)
-    ]);
-    
-    doc.autoTable({
-      startY: yPos,
-      head: [['Fecha', 'Descripción', 'Valor']],
-      body: expensesData,
-      theme: 'striped',
-      styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontStyle: 'bold' },
-      columnStyles: {
-        0: { cellWidth: 25 },
-        1: { cellWidth: 100 },
-        2: { cellWidth: 30, halign: 'right' }
-      }
-    });
-    
-    yPos = doc.lastAutoTable.finalY + 15;
-  }
-  
-  // Tabla de ingresos (solo para casas independientes)
-  if (house.type === 'independiente' && houseIncomes.length > 0) {
-    if (yPos > 250) {
-      doc.addPage();
-      yPos = 20;
-    }
-    
-    doc.setFontSize(12);
-    doc.text('INGRESOS DETALLADOS', 20, yPos);
-    yPos += 10;
-    
-    const incomesData = houseIncomes.map(inc => [
-      inc.date,
-      inc.description,
-      formatter.format(inc.amount)
-    ]);
-    
-    doc.autoTable({
-      startY: yPos,
-      head: [['Fecha', 'Descripción', 'Valor']],
-      body: incomesData,
-      theme: 'striped',
-      styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { fillColor: [34, 197, 94], textColor: [255, 255, 255], fontStyle: 'bold' },
-      columnStyles: {
-        0: { cellWidth: 25 },
-        1: { cellWidth: 100 },
-        2: { cellWidth: 30, halign: 'right' }
-      }
-    });
-  }
-}
-
-
-  // ==================== INICIALIZACIÓN ====================
-
-  // Establecer fecha actual por defecto
-  const today = new Date().toISOString().split('T')[0];
-  document.getElementById('expenseDate').value = today;
-  document.getElementById('incomeDate').value = today;
-  document.getElementById('editDate').value = today;
-
-  // Cargar datos iniciales
-  console.log('Sistema iniciado correctamente');
- //Event listeners para botones de exportación del dashboard
-document.getElementById('exportDetailPdf').addEventListener('click', () => {
-  const houseExpensesDetail = document.getElementById('houseExpensesDetail');
-  if (houseExpensesDetail.classList.contains('hidden')) {
-    showNotification('Por favor, seleccione una casa para ver el detallado antes de exportar.', 'error');
-    return;
-  }
-  const titleElement = document.getElementById('houseExpensesTitle');
-  const titleText = titleElement.textContent;
-  const houseName = titleText.split(' - ')[1] || 'Casa';
-  
-  // Obtener datos de la casa
-  const houseNameClean = houseName.replace('Detallado de Transacciones - ', '').split(' (')[0];
-  const houseExpenses = expenses.filter(exp => exp.house === houseNameClean);
-  const houseIncomes = incomes.filter(inc => inc.house === houseNameClean);
-  
-  if (houseExpenses.length === 0 && houseIncomes.length === 0) {
-    showNotification('No hay datos para exportar.', 'warning');
-    return;
-  }
-  // Crear PDF
-  const doc = new jsPDF();
-  
-  // Título
-  doc.setFontSize(16);
-  doc.text('Sistema de Gestión de Casas', 20, 20);
-  
-  doc.setFontSize(14);
-  doc.text(titleText, 20, 35);
-  
-  doc.setFontSize(10);
-  doc.text(`Fecha de generación: ${new Date().toLocaleDateString('es-CO')}`, 20, 45);
-  
-  let yPos = 60;
-  
-  // Gastos
-  if (houseExpenses.length > 0) {
-    doc.setFontSize(12);
-    doc.text('GASTOS:', 20, yPos);
-    yPos += 10;
-    
-    const expensesData = houseExpenses.map(exp => [
-      exp.date,
-      exp.description,
-      formatter.format(exp.amount)
-    ]);
-    
-    doc.autoTable({
-      startY: yPos,
-      head: [['Fecha', 'Descripción', 'Valor']],
-      body: expensesData,
-      theme: 'grid',
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: 'bold' }
-    });
-    
-    yPos = doc.lastAutoTable.finalY + 10;
-    
-    const totalExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-    doc.setFontSize(10);
-    doc.text(`Total Gastos: ${formatter.format(totalExpenses)}`, 20, yPos);
-    yPos += 15;
-  }
-  
-  // Ingresos (solo para casas independientes)
-  const house = houses.find(h => h.name === houseNameClean);
-  if (house && house.type === 'independiente' && houseIncomes.length > 0) {
-    doc.setFontSize(12);
-    doc.text('INGRESOS:', 20, yPos);
-    yPos += 10;
-    
-    const incomesData = houseIncomes.map(inc => [
-      inc.date,
-      inc.description,
-      formatter.format(inc.amount)
-    ]);
-    
-    doc.autoTable({
-      startY: yPos,
-      head: [['Fecha', 'Descripción', 'Valor']],
-      body: incomesData,
-      theme: 'grid',
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: 'bold' }
-    });
-    
-    yPos = doc.lastAutoTable.finalY + 10;
-    
-    const totalIncomes = houseIncomes.reduce((sum, inc) => sum + inc.amount, 0);
-    doc.setFontSize(10);
-    doc.text(`Total Ingresos: ${formatter.format(totalIncomes)}`, 20, yPos);
-    yPos += 10;
-    
-    const balance = totalIncomes - houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-    doc.text(`Saldo: ${formatter.format(balance)}`, 20, yPos);
-  }
-  
-  // Guardar PDF
-  doc.save(`detalle-${houseNameClean.toLowerCase().replace(/\s+/g, '-')}.pdf`);
-  showNotification('PDF exportado correctamente.', 'success');
-});
-document.getElementById('exportDetailExcel').addEventListener('click', () => {
-  const houseExpensesDetail = document.getElementById('houseExpensesDetail');
-  if (houseExpensesDetail.classList.contains('hidden')) {
-    showNotification('Por favor, seleccione una casa para ver el detallado antes de exportar.', 'error');
-    return;
-  }
-  const titleElement = document.getElementById('houseExpensesTitle');
-  const titleText = titleElement.textContent;
-  const houseName = titleText.split(' - ')[1] || 'Casa';
-  
-  // Obtener datos de la casa
-  const houseNameClean = houseName.replace('Detallado de Transacciones - ', '').split(' (')[0];
-  const houseExpenses = expenses.filter(exp => exp.house === houseNameClean);
-  const houseIncomes = incomes.filter(inc => inc.house === houseNameClean);
-  
-  if (houseExpenses.length === 0 && houseIncomes.length === 0) {
-    showNotification('No hay datos para exportar.', 'warning');
-    return;
-  }
-  const wb = XLSX.utils.book_new();
-  
-  // Hoja de gastos
-  if (houseExpenses.length > 0) {
-    const expensesData = [
-      ['Fecha', 'Descripción', 'Valor'],
-      ...houseExpenses.map(exp => [exp.date, exp.description, exp.amount])
-    ];
-    
-    const ws = XLSX.utils.aoa_to_sheet(expensesData);
-    XLSX.utils.book_append_sheet(wb, ws, 'Gastos');
-  }
-  
-  // Hoja de ingresos (solo para casas independientes)
-  const house = houses.find(h => h.name === houseNameClean);
-  if (house && house.type === 'independiente' && houseIncomes.length > 0) {
-    const incomesData = [
-      ['Fecha', 'Descripción', 'Valor'],
-      ...houseIncomes.map(inc => [inc.date, inc.description, inc.amount])
-    ];
-    
-    const ws = XLSX.utils.aoa_to_sheet(incomesData);
-    XLSX.utils.book_append_sheet(wb, ws, 'Ingresos');
-  }
-  
-  // Guardar Excel
-  XLSX.writeFile(wb, `detalle-${houseNameClean.toLowerCase().replace(/\s+/g, '-')}.xlsx`);
-  showNotification('Excel exportado correctamente.', 'success');
-});
-// 3. EXCEL PROFESIONAL POR CADA CASA
-// ===============================================
-
-function exportAllHousesToExcel() {
-  const wb = XLSX.utils.book_new();
-  
-  // Hoja de resumen
-  const summaryData = [
-    ['SISTEMA DE GESTIÓN DE CASAS'],
-    [`Reporte generado: ${new Date().toLocaleDateString('es-CO')} ${new Date().toLocaleTimeString('es-CO')}`],
-    [''],
-    ['RESUMEN GENERAL'],
-    ['Total Casas:', houses.length],
-    ['Total Ingresos:', incomes.reduce((sum, inc) => sum + inc.amount, 0)],
-    ['Total Gastos:', expenses.reduce((sum, exp) => sum + exp.amount, 0)],
-    [''],
-    ['DETALLE POR CASA'],
-    ['Casa', 'Tipo', 'Ingresos', 'Gastos', 'Saldo']
-  ];
-  
-  houses.forEach(house => {
-    const houseExpenses = expenses.filter(exp => exp.house === house.name);
-    const houseIncomes = incomes.filter(inc => inc.house === house.name);
-    const totalExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-    const totalIncomes = houseIncomes.reduce((sum, inc) => sum + inc.amount, 0);
-    const balance = totalIncomes - totalExpenses;
-    
-    summaryData.push([
-      house.name,
-      house.type === 'conjunto' ? 'Conjunto' : 'Independiente',
-      totalIncomes,
-      totalExpenses,
-      balance
-    ]);
-  });
-  
-  const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
-  XLSX.utils.book_append_sheet(wb, summaryWs, 'Resumen');
-  
-  // Hoja para cada casa
-  houses.forEach(house => {
-    const houseExpenses = expenses.filter(exp => exp.house === house.name);
-    const houseIncomes = incomes.filter(inc => inc.house === house.name);
-    
-    const houseData = [
-      [`DETALLE - ${house.name.toUpperCase()}`],
-      [`Tipo: ${house.type === 'conjunto' ? 'Conjunto Residencial' : 'Casa Independiente'}`],
-      [`Fecha: ${new Date().toLocaleDateString('es-CO')}`],
-      [''],
-      ['RESUMEN FINANCIERO'],
-      ['Concepto', 'Valor'],
-      ['Total Ingresos', houseIncomes.reduce((sum, inc) => sum + inc.amount, 0)],
-      ['Total Gastos', houseExpenses.reduce((sum, exp) => sum + exp.amount, 0)],
-      ['Saldo', houseIncomes.reduce((sum, inc) => sum + inc.amount, 0) - houseExpenses.reduce((sum, exp) => sum + exp.amount, 0)],
-      ['']
-    ];
-    
-    // Gastos
-    if (houseExpenses.length > 0) {
-      houseData.push(['GASTOS DETALLADOS']);
-      houseData.push(['Fecha', 'Descripción', 'Valor']);
-      houseExpenses.forEach(exp => {
-        houseData.push([exp.date, exp.description, exp.amount]);
-      });
-      houseData.push(['']);
-    }
-    
-    // Ingresos (solo para casas independientes)
-    if (house.type === 'independiente' && houseIncomes.length > 0) {
-      houseData.push(['INGRESOS DETALLADOS']);
-      houseData.push(['Fecha', 'Descripción', 'Valor']);
-      houseIncomes.forEach(inc => {
-        houseData.push([inc.date, inc.description, inc.amount]);
-      });
-    }
-    
-    const houseWs = XLSX.utils.aoa_to_sheet(houseData);
-    
-    // Formatear hoja
-    if (houseWs['!ref']) {
-      const range = XLSX.utils.decode_range(houseWs['!ref']);
-      
-      // Ancho de columnas
-      houseWs['!cols'] = [
-        { wch: 15 }, // Fecha
-        { wch: 40 }, // Descripción  
-        { wch: 15 }  // Valor
-      ];
-      
-      // Formato de celdas
-      for (let R = range.s.r; R <= range.e.r; ++R) {
-        for (let C = range.s.c; C <= range.e.c; ++C) {
-          const cell_address = XLSX.utils.encode_cell({r: R, c: C});
-          if (!houseWs[cell_address]) continue;
-          
-          // Formato para números (columna de valores)
-          if (C === 2 && typeof houseWs[cell_address].v === 'number') {
-            houseWs[cell_address].z = '#,##0';
-          }
-        }
-      }
-    }
-    
-    // Nombre de hoja válido (máximo 31 caracteres)
-    const sheetName = house.name.substring(0, 31).replace(/[\\/:*?[\]]/g, '');
-    XLSX.utils.book_append_sheet(wb, houseWs, sheetName);
-  });
-  
-  XLSX.writeFile(wb, `reporte-completo-casas-${new Date().toISOString().split('T')[0]}.xlsx`);
-  showNotification('Excel profesional exportado correctamente.', 'success');
-}
-
-// Event listener para Excel completo
-document.getElementById('exportAllHousesExcel').addEventListener('click', exportAllHousesToExcel);
-// Reporte consolidado avanzado
-document.getElementById('generateAdvancedReport').addEventListener('click', () => {
-  const startDate = new Date(document.getElementById('consolidatedAdvancedStartDate').value);
-  const endDate = new Date(document.getElementById('consolidatedAdvancedEndDate').value);
-  const reportType = document.getElementById('consolidatedType').value;
-  
-  let reportHTML = '';
-  
-  if (reportType === 'conjunto') {
-    reportHTML = generateConjuntoReport(startDate, endDate);
-  } else if (reportType === 'independientes') {
-    reportHTML = generateIndependientesReport(startDate, endDate);
-  } else if (reportType === 'por_casa') {
-    reportHTML = generateDetailedByHouseReport(startDate, endDate);
-  } else {
-    reportHTML = generateGeneralAdvancedReport(startDate, endDate);
-  }
-  
-  document.getElementById('reportContent').innerHTML = reportHTML;
-  document.getElementById('reportContent').scrollIntoView({ behavior: 'smooth' });
-});
-function generateConjuntoReport(startDate, endDate) {
-  const conjuntoHouses = getHousesByType('conjunto');
-  const filteredExpenses = expenses.filter(exp => {
-    const expDate = new Date(exp.date);
-    return expDate >= startDate && expDate <= endDate && conjuntoHouses.some(h => h.name === exp.house);
-  });
-  const filteredIncomes = incomes.filter(inc => {
-    const incDate = new Date(inc.date);
-    return incDate >= startDate && incDate <= endDate && (!inc.house || inc.house === '');
-  });
-  
-  const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-  const totalIncomes = filteredIncomes.reduce((sum, inc) => sum + inc.amount, 0);
-  const balance = totalIncomes - totalExpenses;
-  
-  return `
-    <div class="fade-in">
-      <h3 class="text-xl font-bold mb-4">Reporte Conjunto Residencial</h3>
-      <p class="text-sm text-gray-600 mb-6">Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
-      
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div class="bg-green-100 p-4 rounded-lg">
-          <h4 class="font-semibold text-green-800">Ingresos del Fondo</h4>
-          <p class="text-2xl font-bold text-green-600">${formatter.format(totalIncomes)}</p>
-        </div>
-        <div class="bg-red-100 p-4 rounded-lg">
-          <h4 class="font-semibold text-red-800">Gastos del Conjunto</h4>
-          <p class="text-2xl font-bold text-red-600">${formatter.format(totalExpenses)}</p>
-        </div>
-        <div class="bg-yellow-100 p-4 rounded-lg">
-          <h4 class="font-semibold text-yellow-800">Saldo del Fondo</h4>
-          <p class="text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}">${formatter.format(balance)}</p>
-        </div>
-      </div>
-      
-      <div class="mb-6">
-        <h4 class="text-lg font-semibold mb-3">Casas del Conjunto (${conjuntoHouses.length})</h4>
-        <div class="overflow-x-auto">
-          <table class="w-full border-collapse border">
-            <thead>
-              <tr class="bg-gray-100">
-                <th class="border p-2 text-left">Casa</th>
-                <th class="border p-2 text-right">Gastos en el Período</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${conjuntoHouses.map(house => {
-                const houseExpenses = filteredExpenses.filter(exp => exp.house === house.name);
-                const totalHouseExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-                return `
-                  <tr>
-                    <td class="border p-2 font-medium">${house.name}</td>
-                    <td class="border p-2 text-right">${formatter.format(totalHouseExpenses)}</td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  `;
-}
-function generateIndependientesReport(startDate, endDate) {
-  const independientesHouses = getHousesByType('independiente');
-  
-  return `
-    <div class="fade-in">
-      <h3 class="text-xl font-bold mb-4">Reporte Casas Independientes</h3>
-      <p class="text-sm text-gray-600 mb-6">Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
-      
-      <div class="mb-6">
-        <h4 class="text-lg font-semibold mb-3">Casas Independientes (${independientesHouses.length})</h4>
-        <div class="overflow-x-auto">
-          <table class="w-full border-collapse border">
-            <thead>
-              <tr class="bg-gray-100">
-                <th class="border p-2 text-left">Casa</th>
-                <th class="border p-2 text-right">Ingresos</th>
-                <th class="border p-2 text-right">Gastos</th>
-                <th class="border p-2 text-right">Saldo</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${independientesHouses.map(house => {
-                const houseExpenses = expenses.filter(exp => {
-                  const expDate = new Date(exp.date);
-                  return expDate >= startDate && expDate <= endDate && exp.house === house.name;
-                });
-                const houseIncomes = incomes.filter(inc => {
-                  const incDate = new Date(inc.date);
-                  return incDate >= startDate && incDate <= endDate && inc.house === house.name;
-                });
-                const totalExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-                const totalIncomes = houseIncomes.reduce((sum, inc) => sum + inc.amount, 0);
-                const balance = totalIncomes - totalExpenses;
-                
-                return `
-                  <tr>
-                    <td class="border p-2 font-medium">${house.name}</td>
-                    <td class="border p-2 text-right text-green-600">${formatter.format(totalIncomes)}</td>
-                    <td class="border p-2 text-right text-red-600">${formatter.format(totalExpenses)}</td>
-                    <td class="border p-2 text-right font-semibold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}">${formatter.format(balance)}</td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  `;
-}
-// Llamar estas funciones al final del DOMContentLoaded
-function initializeProfessionalFeatures() {
-  setupRealtimeSync();
-  setupAdvancedReportListeners();
-  console.log('Funcionalidades profesionales inicializadas');
-}
-// ==================== SINCRONIZACIÓN EN TIEMPO REAL ====================
-  
-  // Listener en tiempo real para cambios en la base de datos
-  function setupRealtimeSync() {
-    console.log('Configurando sincronización en tiempo real...');
-    
-    db.collection('userData').doc('appData').onSnapshot((doc) => {
-      console.log('Cambio detectado en Firestore');
-      
-      if (doc.exists) {
-        const data = doc.data();
-        const newHouses = data.houses || [];
-        const newExpenses = data.expenses || [];
-        const newIncomes = data.incomes || [];
-        
-        // Verificar si hay cambios reales
-        const hasChanges = 
-          JSON.stringify(houses) !== JSON.stringify(newHouses) ||
-          JSON.stringify(expenses) !== JSON.stringify(newExpenses) ||
-          JSON.stringify(incomes) !== JSON.stringify(newIncomes);
-        
-        if (hasChanges) {
-          console.log('Actualizando datos desde Firestore...');
-          
-          houses = newHouses;
-          expenses = newExpenses;
-          incomes = newIncomes;
-          
-          // Migrar datos si es necesario
-          migrateOldData();
-          
-          // Actualizar localStorage como backup
-          localStorage.setItem('houses', JSON.stringify(houses));
-          localStorage.setItem('expenses', JSON.stringify(expenses));
-          localStorage.setItem('incomes', JSON.stringify(incomes));
-          
-          // Actualizar todas las vistas
-          updateAllViews();
-          
-          // Mostrar notificación
-          showNotification('📱 Datos actualizados automáticamente', 'info');
-        }
-      }
-    }, (error) => {
-      console.error('Error en sincronización en tiempo real:', error);
-    });
-  }
-  // ==================== FUNCIONES DE EXPORTACIÓN MEJORADAS ====================
   // Exportar a PDF profesional
   const exportPdfBtn = document.getElementById('exportPdf');
   if (exportPdfBtn) {
@@ -2257,155 +1498,11 @@ function initializeProfessionalFeatures() {
   if (exportAllHousesExcelBtn) {
     exportAllHousesExcelBtn.addEventListener('click', exportAllHousesToExcel);
   }
-  // ==================== REPORTES AVANZADOS ====================
-  // Funciones para reportes específicos
-  function generateConjuntoReport(startDate, endDate) {
-    const conjuntoHouses = getHousesByType('conjunto');
-    const filteredExpenses = expenses.filter(exp => {
-      const expDate = new Date(exp.date);
-      return expDate >= startDate && expDate <= endDate && conjuntoHouses.some(h => h.name === exp.house);
-    });
-    const filteredIncomes = incomes.filter(inc => {
-      const incDate = new Date(inc.date);
-      return incDate >= startDate && incDate <= endDate && (!inc.house || inc.house === '');
-    });
-    
-    const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-    const totalIncomes = filteredIncomes.reduce((sum, inc) => sum + inc.amount, 0);
-    const balance = totalIncomes - totalExpenses;
-    
-    return `
-      <div class="fade-in">
-        <h3 class="text-xl font-bold mb-4">Reporte Conjunto Residencial</h3>
-        <p class="text-sm text-gray-600 mb-6">Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
-        
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div class="bg-green-100 p-4 rounded-lg">
-            <h4 class="font-semibold text-green-800">Ingresos del Fondo</h4>
-            <p class="text-2xl font-bold text-green-600">${formatter.format(totalIncomes)}</p>
-          </div>
-          <div class="bg-red-100 p-4 rounded-lg">
-            <h4 class="font-semibold text-red-800">Gastos del Conjunto</h4>
-            <p class="text-2xl font-bold text-red-600">${formatter.format(totalExpenses)}</p>
-          </div>
-          <div class="bg-yellow-100 p-4 rounded-lg">
-            <h4 class="font-semibold text-yellow-800">Saldo del Fondo</h4>
-            <p class="text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}">${formatter.format(balance)}</p>
-          </div>
-        </div>
-        
-        <div class="mb-6">
-          <h4 class="text-lg font-semibold mb-3">Casas del Conjunto (${conjuntoHouses.length})</h4>
-          <div class="overflow-x-auto">
-            <table class="w-full border-collapse border">
-              <thead>
-                <tr class="bg-gray-100">
-                  <th class="border p-2 text-left">Casa</th>
-                  <th class="border p-2 text-right">Gastos en el Período</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${conjuntoHouses.map(house => {
-                  const houseExpenses = filteredExpenses.filter(exp => exp.house === house.name);
-                  const totalHouseExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-                  return `
-                    <tr>
-                      <td class="border p-2 font-medium">${house.name}</td>
-                      <td class="border p-2 text-right">${formatter.format(totalHouseExpenses)}</td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-  function generateIndependientesReport(startDate, endDate) {
-    const independientesHouses = getHousesByType('independiente');
-    
-    return `
-      <div class="fade-in">
-        <h3 class="text-xl font-bold mb-4">Reporte Casas Independientes</h3>
-        <p class="text-sm text-gray-600 mb-6">Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
-        
-        <div class="mb-6">
-          <h4 class="text-lg font-semibold mb-3">Casas Independientes (${independientesHouses.length})</h4>
-          <div class="overflow-x-auto">
-            <table class="w-full border-collapse border">
-              <thead>
-                <tr class="bg-gray-100">
-                  <th class="border p-2 text-left">Casa</th>
-                  <th class="border p-2 text-right">Ingresos</th>
-                  <th class="border p-2 text-right">Gastos</th>
-                  <th class="border p-2 text-right">Saldo</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${independientesHouses.map(house => {
-                  const houseExpenses = expenses.filter(exp => {
-                    const expDate = new Date(exp.date);
-                    return expDate >= startDate && expDate <= endDate && exp.house === house.name;
-                  });
-                  const houseIncomes = incomes.filter(inc => {
-                    const incDate = new Date(inc.date);
-                    return incDate >= startDate && incDate <= endDate && inc.house === house.name;
-                  });
-                  const totalExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-                  const totalIncomes = houseIncomes.reduce((sum, inc) => sum + inc.amount, 0);
-                  const balance = totalIncomes - totalExpenses;
-                  
-                  return `
-                    <tr>
-                      <td class="border p-2 font-medium">${house.name}</td>
-                      <td class="border p-2 text-right text-green-600">${formatter.format(totalIncomes)}</td>
-                      <td class="border p-2 text-right text-red-600">${formatter.format(totalExpenses)}</td>
-                      <td class="border p-2 text-right font-semibold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}">${formatter.format(balance)}</td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-  // Event listeners para reportes avanzados
-  const generateAdvancedReportBtn = document.getElementById('generateAdvancedReport');
-  if (generateAdvancedReportBtn) {
-    generateAdvancedReportBtn.addEventListener('click', () => {
-      const startDate = new Date(document.getElementById('consolidatedAdvancedStartDate').value);
-      const endDate = new Date(document.getElementById('consolidatedAdvancedEndDate').value);
-      const reportType = document.getElementById('consolidatedType').value;
-      
-      let reportHTML = '';
-      
-      if (reportType === 'conjunto') {
-        reportHTML = generateConjuntoReport(startDate, endDate);
-      } else if (reportType === 'independientes') {
-        reportHTML = generateIndependientesReport(startDate, endDate);
-      } else {
-        // Reporte general por defecto
-        reportHTML = `
-          <div class="fade-in">
-            <h3 class="text-xl font-bold mb-4">Reporte General Avanzado</h3>
-            <p class="text-sm text-gray-600 mb-6">Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
-            <p class="text-center py-8">Seleccione un tipo específico de reporte para ver detalles avanzados.</p>
-          </div>
-        `;
-      }
-      
-      document.getElementById('reportContent').innerHTML = reportHTML;
-      document.getElementById('reportContent').scrollIntoView({ behavior: 'smooth' });
-    });
-  }
   // ==================== INICIALIZACIÓN ====================
   // Inicializar sincronización en tiempo real
   setupRealtimeSync();
-  // Establecer fecha actual por defecto para reportes avanzados
-  const todayAdvanced = new Date().toISOString().split('T')[0];
+  // Establecer fecha actual por defecto
+  const today = new Date().toISOString().split('T')[0];
   const consolidatedAdvancedStartDate = document.getElementById('consolidatedAdvancedStartDate');
   const consolidatedAdvancedEndDate = document.getElementById('consolidatedAdvancedEndDate');
   
@@ -2413,8 +1510,8 @@ function initializeProfessionalFeatures() {
     consolidatedAdvancedStartDate.value = '2025-01-01';
   }
   if (consolidatedAdvancedEndDate) {
-    consolidatedAdvancedEndDate.value = todayAdvanced;
+    consolidatedAdvancedEndDate.value = today;
   }
   // Cargar datos iniciales
-  console.log('Sistema iniciado correctamente con funciones de exportación');
+  console.log('Sistema iniciado correctamente con funciones de exportación compatibles');
 });
