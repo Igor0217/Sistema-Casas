@@ -1429,7 +1429,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Cargar datos iniciales
   console.log('Sistema iniciado correctamente');
-Event listeners para botones de exportación del dashboard
+ //Event listeners para botones de exportación del dashboard
 document.getElementById('exportDetailPdf').addEventListener('click', () => {
   const houseExpensesDetail = document.getElementById('houseExpensesDetail');
   if (houseExpensesDetail.classList.contains('hidden')) {
