@@ -1,11 +1,4 @@
-const firebaseConfig = {
-  apiKey: "AIzaSyCH1771AFZyfSD_PvNxR9AQoZ30dg_DcOg",
-  authDomain: "fortalezasas-25e42.firebaseapp.com",
-  projectId: "fortalezasas-25e42",
-  storageBucket: "fortalezasas-25e42.firebasestorage.app",
-  messagingSenderId: "383032445971",
-  appId: "1:383032445971:web:490f92170d2f36be70c3e6"
-};
+const firebaseConfig = JSON.parse(process.env.FIREBASE_CONFIG || '{}');
 
 // Inicializa Firebase
 const app = firebase.initializeApp(firebaseConfig);
@@ -15,14 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const { jsPDF } = window.jspdf;
   const { utils, write, WorkBook } = XLSX;
 
-  // Google Drive API configuration
-  //const CLIENT_ID = '429861903088-l0tprfs66bhbei0k2ng2svoik5suo109.apps.googleusercontent.com';
-  //const API_KEY = 'AIzaSyD7zLcyUcIgBa0r4S02BQotJktzNwE6zrM'; // Replace with your Google Cloud API Key
-  //const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
-  //const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-  //let gapiLoaded = false;
-  //let isSignedIn = false;
-
+  
   // Formatter for Colombian pesos without decimals
   const formatter = new Intl.NumberFormat('es-CO', {
     style: 'currency',
