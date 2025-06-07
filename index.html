@@ -1,247 +1,658 @@
 <!DOCTYPE html>
-   <html lang="es">
-   <head>
-       <meta charset="UTF-8">
-       <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://accounts.google.com https://apis.google.com https://cdnjs.cloudflare.com;">
-       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-       <title>Sistema de Gestión de Casas</title>
-       <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-       <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-       <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
-       <script src="https://apis.google.com/js/api.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>       <script src="renderer.js" defer></script>
-       <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-       <link rel="icon" href="data:,">
-   </head>
-   <body class="bg-gray-100 font-sans">
-       <header class="bg-blue-600 text-white p-4">
-           <h1 class="text-2xl font-bold">Sistema de Gestión de Casas</h1>
-           <p class="text-sm">Control de casas, gastos e ingresos</p>
-           <p class="text-sm">Último acceso: 04:15 PM -05, Lunes 2 de Junio de 2025</p>
-           <div class="mt-2 space-x-2">
-               <button id="newHouseBtn" class="bg-green-500 hover:bg-green-600 text-white p-2 rounded">Nueva Casa</button>
-               <button id="backupBtn" class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded">Backup</button>
-               <button id="importBtn" class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded">Importar Backup</button>
-               <input type="file" id="importBackup" class="hidden" accept=".json">
-               <button id="exportExcelBtn" class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded">Exportar Gastos a Excel</button>
-               <button id="syncGoogleDrive" class="bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Sincronizar con Firestore</button>
-           </div>
-       </header>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://accounts.google.com https://apis.google.com https://cdnjs.cloudflare.com;">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión de Casas Mejorado</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>       
+    <script src="renderer_mejorado.js" defer></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="icon" href="data:,">
+    <style>
+        /* Estilos personalizados para mejor responsividad */
+        @media (max-width: 640px) {
+            .mobile-stack {
+                flex-direction: column !important;
+            }
+            .mobile-full {
+                width: 100% !important;
+            }
+            .mobile-text-sm {
+                font-size: 0.875rem !important;
+            }
+            .mobile-p-2 {
+                padding: 0.5rem !important;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .tablet-stack {
+                flex-direction: column !important;
+            }
+            .tablet-grid-1 {
+                grid-template-columns: 1fr !important;
+            }
+        }
+        
+        .card-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .card-hover {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .tipo-conjunto {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .tipo-independiente {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .balance-positive {
+            color: #059669 !important;
+        }
+        
+        .balance-negative {
+            color: #dc2626 !important;
+        }
+        
+        .balance-zero {
+            color: #d97706 !important;
+        }
 
-       <nav class="bg-gray-800 text-white p-4">
-           <button data-section="dashboard" class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded mx-1">Dashboard</button>
-           <button data-section="gastos" class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded mx-1">Gastos</button>
-           <button data-section="ingresos" class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded mx-1">Ingresos</button>
-           <button data-section="reportes" class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded mx-1">Reportes</button>
-       </nav>
+        /* Animaciones suaves */
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Mejoras para formularios en móvil */
+        @media (max-width: 640px) {
+            input, select, textarea {
+                font-size: 16px !important; /* Evita zoom en iOS */
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans min-h-screen">
+    <!-- Header mejorado y responsivo -->
+    <header class="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4 lg:py-6">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+                <div class="mb-4 lg:mb-0">
+                    <h1 class="text-2xl lg:text-3xl font-bold">Sistema de Gestión de Casas</h1>
+                    <p class="text-sm lg:text-base text-blue-100">Control de casas, gastos e ingresos - Conjunto e Independientes</p>
+                    <p class="text-xs lg:text-sm text-blue-200">Último acceso: 04:15 PM -05, Lunes 2 de Junio de 2025</p>
+                </div>
+                <div class="flex flex-wrap gap-2 lg:gap-3">
+                    <button id="newHouseBtn" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 lg:px-4 lg:py-2 rounded-lg text-sm lg:text-base transition-colors duration-200">
+                        <span class="hidden sm:inline">Nueva Casa</span>
+                        <span class="sm:hidden">+Casa</span>
+                    </button>
+                    <button id="backupBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 lg:px-4 lg:py-2 rounded-lg text-sm lg:text-base transition-colors duration-200">
+                        <span class="hidden sm:inline">Backup</span>
+                        <span class="sm:hidden">💾</span>
+                    </button>
+                    <button id="importBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 lg:px-4 lg:py-2 rounded-lg text-sm lg:text-base transition-colors duration-200">
+                        <span class="hidden sm:inline">Importar</span>
+                        <span class="sm:hidden">📥</span>
+                    </button>
+                    <input type="file" id="importBackup" class="hidden" accept=".json">
+                    <button id="exportExcelBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 lg:px-4 lg:py-2 rounded-lg text-sm lg:text-base transition-colors duration-200">
+                        <span class="hidden sm:inline">Excel</span>
+                        <span class="sm:hidden">📊</span>
+                    </button>
+                    <button id="syncGoogleDrive" class="bg-blue-500 text-white px-3 py-2 lg:px-4 lg:py-2 rounded-lg hover:bg-blue-600 text-sm lg:text-base transition-colors duration-200">
+                        <span class="hidden sm:inline">Sincronizar</span>
+                        <span class="sm:hidden">☁️</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
 
-       <main class="p-4">
-           <section id="dashboard" class="space-y-6">
-               <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                   <div class="bg-white p-4 rounded shadow">
-                       <p class="text-lg font-medium">Total Casas</p>
-                       <p id="totalHouses" class="text-2xl font-bold">0</p>
-                   </div>
-                   <div class="bg-white p-4 rounded shadow">
-                       <p class="text-lg font-medium">Total Ingresos</p>
-                       <p id="totalIncomes" class="text-2xl font-bold">$0</p>
-                   </div>
-                   <div class="bg-white p-4 rounded shadow">
-                       <p class="text-lg font-medium">Total Gastos</p>
-                       <p id="totalExpenses" class="text-2xl font-bold">$0</p>
-                   </div>
-                   <div class="bg-white p-4 rounded shadow">
-                       <p class="text-lg font-medium">Saldo</p>
-                       <p id="totalBalance" class="text-2xl font-bold">$0</p>
-                   </div>
-               </div>
+    <!-- Navegación responsiva -->
+    <nav class="bg-gray-800 text-white shadow-lg">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-wrap gap-1 py-2 lg:py-4">
+                <button data-section="dashboard" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 lg:px-4 lg:py-2 rounded-lg text-sm lg:text-base transition-colors duration-200 mb-2 lg:mb-0">
+                    <span class="hidden sm:inline">Dashboard</span>
+                    <span class="sm:hidden">📊</span>
+                </button>
+                <button data-section="gastos" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 lg:px-4 lg:py-2 rounded-lg text-sm lg:text-base transition-colors duration-200 mb-2 lg:mb-0">
+                    <span class="hidden sm:inline">Gastos</span>
+                    <span class="sm:hidden">💰</span>
+                </button>
+                <button data-section="ingresos" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 lg:px-4 lg:py-2 rounded-lg text-sm lg:text-base transition-colors duration-200 mb-2 lg:mb-0">
+                    <span class="hidden sm:inline">Ingresos</span>
+                    <span class="sm:hidden">💵</span>
+                </button>
+                <button data-section="reportes" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 lg:px-4 lg:py-2 rounded-lg text-sm lg:text-base transition-colors duration-200 mb-2 lg:mb-0">
+                    <span class="hidden sm:inline">Reportes</span>
+                    <span class="sm:hidden">📄</span>
+                </button>
+            </div>
+        </div>
+    </nav>
 
-               <h2 class="text-xl font-semibold">Casas Registradas</h2>
-               <table class="w-full text-left border-collapse">
-                   <thead>
-                       <tr class="bg-gray-200">
-                           <th class="p-3">Casa</th>
-                           <th class="p-3">Gastos</th>
-                           <th class="p-3">Acciones</th>
-                       </tr>
-                   </thead>
-                   <tbody id="housesList"></tbody>
-               </table>
-               <p class="mt-2 text-sm text-gray-600">Haz clic en una casa para ver el detallado de gastos.</p>
+    <main class="container mx-auto px-4 py-6">
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="space-y-6 fade-in">
+            <!-- Resumen General -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+                <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg card-hover">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm lg:text-base font-medium text-gray-600">Total Casas</p>
+                            <p id="totalHouses" class="text-2xl lg:text-3xl font-bold text-gray-800">0</p>
+                        </div>
+                        <div class="bg-blue-100 p-3 rounded-full">
+                            <span class="text-blue-600 text-xl">🏠</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg card-hover">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm lg:text-base font-medium text-gray-600">Total Ingresos</p>
+                            <p id="totalIncomes" class="text-xl lg:text-2xl font-bold text-green-600">$0</p>
+                        </div>
+                        <div class="bg-green-100 p-3 rounded-full">
+                            <span class="text-green-600 text-xl">💵</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg card-hover">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm lg:text-base font-medium text-gray-600">Total Gastos</p>
+                            <p id="totalExpenses" class="text-xl lg:text-2xl font-bold text-red-600">$0</p>
+                        </div>
+                        <div class="bg-red-100 p-3 rounded-full">
+                            <span class="text-red-600 text-xl">💰</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg card-hover">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm lg:text-base font-medium text-gray-600">Saldo Total</p>
+                            <p id="totalBalance" class="text-xl lg:text-2xl font-bold">$0</p>
+                        </div>
+                        <div class="bg-yellow-100 p-3 rounded-full">
+                            <span class="text-yellow-600 text-xl">⚖️</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-               <div id="houseExpensesDetail" class="hidden mt-4">
-                   <h3 id="houseExpensesTitle" class="text-xl font-semibold mb-4">Detallado de Gastos</h3>
-                   <table class="w-full text-left border-collapse">
-                       <thead>
-                           <tr class="bg-gray-200">
-                               <th class="p-3">Fecha</th>
-                               <th class="p-3">Descripción</th>
-                               <th class="p-3">Valor</th>
-                           </tr>
-                       </thead>
-                       <tbody id="houseExpensesList"></tbody>
-                   </table>
-                   <p id="houseExpensesTotal" class="mt-4 text-lg font-medium">Total Gastos: $0</p>
-                   <div class="mt-2 space-x-2">
-                       <button id="exportDetailPdf" class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded">Exportar a PDF</button>
-                       <button id="exportDetailExcel" class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded">Exportar a Excel</button>
-                   </div>
-               </div>
-           </section>
+            <!-- Separación de Fondos -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Fondo Conjunto -->
+                <div class="bg-gradient-to-br from-blue-500 to-purple-600 p-6 rounded-xl text-white card-hover">
+                    <h3 class="text-lg lg:text-xl font-bold mb-4 flex items-center">
+                        <span class="mr-2">🏘️</span>
+                        Fondo Conjunto Residencial
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm lg:text-base">Ingresos Conjunto:</span>
+                            <span id="conjuntoIncomes" class="font-semibold text-lg">$0</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm lg:text-base">Gastos Conjunto:</span>
+                            <span id="conjuntoExpenses" class="font-semibold text-lg">$0</span>
+                        </div>
+                        <div class="border-t border-white/30 pt-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm lg:text-base font-bold">Saldo Conjunto:</span>
+                                <span id="conjuntoBalance" class="font-bold text-xl">$0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-           <section id="gastos" class="hidden space-y-6">
-               <h2 class="text-xl font-semibold">Registro de Gastos</h2>
-               <div class="bg-white p-4 rounded shadow space-y-4">
-                   <div>
-                       <label for="expenseDescription" class="block text-sm font-medium">Descripción</label>
-                       <input id="expenseDescription" type="text" class="w-full p-2 border rounded">
-                   </div>
-                   <div>
-                       <label for="expenseAmount" class="block text-sm font-medium">Valor Total</label>
-                       <input id="expenseAmount" type="text" class="w-full p-2 border rounded" data-value="0" oninput="formatInput(this)">
-                   </div>
-                   <div>
-                       <label for="expenseDate" class="block text-sm font-medium">Fecha</label>
-                       <input id="expenseDate" type="date" class="w-full p-2 border rounded" value="2025-06-02">
-                   </div>
-                   <div class="flex items-center">
-                       <input id="sharedExpense" type="checkbox" class="mr-2">
-                       <label for="sharedExpense" class="text-sm font-medium">Gasto compartido entre varias casas</label>
-                   </div>
-                   <div id="houseAssignment">
-                       <label for="expenseHouse" class="block text-sm font-medium">Asignar a Casa</label>
-                       <select id="expenseHouse" class="w-full p-2 border rounded">
-                           <option value="">Seleccione una casa</option>
-                       </select>
-                   </div>
-                   <div id="sharedHouseAssignments" class="hidden">
-                       <p class="text-sm font-medium">Distribución por Casa</p>
-                       <div id="sharedHousesList" class="space-y-2"></div>
-                   </div>
-                   <button id="registerExpense" class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded">Registrar Gasto</button>
-               </div>
+                <!-- Resumen Independientes -->
+                <div class="bg-gradient-to-br from-pink-500 to-red-500 p-6 rounded-xl text-white card-hover">
+                    <h3 class="text-lg lg:text-xl font-bold mb-4 flex items-center">
+                        <span class="mr-2">🏠</span>
+                        Casas Independientes
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm lg:text-base">Total Casas:</span>
+                            <span id="independientesCount" class="font-semibold text-lg">0</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm lg:text-base">Ingresos Totales:</span>
+                            <span id="independientesIncomes" class="font-semibold text-lg">$0</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm lg:text-base">Gastos Totales:</span>
+                            <span id="independientesExpenses" class="font-semibold text-lg">$0</span>
+                        </div>
+                        <div class="border-t border-white/30 pt-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm lg:text-base font-bold">Saldo Total:</span>
+                                <span id="independientesBalance" class="font-bold text-xl">$0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-               <h2 class="text-xl font-semibold">Gastos Registrados</h2>
-               <div class="mb-4">
-                   <select id="filterHouses" class="p-2 border rounded">
-                       <option value="all">Todas las casas</option>
-                   </select>
-               </div>
-               <table class="w-full text-left border-collapse">
-                   <thead>
-                       <tr class="bg-gray-200">
-                           <th class="p-3">Fecha</th>
-                           <th class="p-3">Descripción</th>
-                           <th class="p-3">Casa</th>
-                           <th class="p-3">Valor</th>
-                           <th class="p-3">Acciones</th>
-                       </tr>
-                   </thead>
-                   <tbody id="expensesList"></tbody>
-               </table>
-           </section>
+            <!-- Lista de Casas -->
+            <div class="bg-white rounded-xl shadow-lg p-4 lg:p-6">
+                <h2 class="text-xl lg:text-2xl font-semibold mb-4 flex items-center">
+                    <span class="mr-2">📋</span>
+                    Casas Registradas
+                </h2>
+                
+                <!-- Filtros -->
+                <div class="mb-4 flex flex-col sm:flex-row gap-4">
+                    <select id="filterTipoCasa" class="p-2 border rounded-lg text-sm lg:text-base">
+                        <option value="all">Todos los tipos</option>
+                        <option value="conjunto">Solo Conjunto</option>
+                        <option value="independiente">Solo Independientes</option>
+                    </select>
+                </div>
 
-           <section id="ingresos" class="hidden space-y-6">
-               <h2 class="text-xl font-semibold">Registro de Ingresos</h2>
-               <div class="bg-white p-4 rounded shadow space-y-4">
-                   <div>
-                       <label for="incomeDescription" class="block text-sm font-medium">Descripción</label>
-                       <input id="incomeDescription" type="text" class="w-full p-2 border rounded">
-                   </div>
-                   <div>
-                       <label for="incomeAmount" class="block text-sm font-medium">Valor</label>
-                       <input id="incomeAmount" type="text" class="w-full p-2 border rounded" data-value="0" oninput="formatInput(this)">
-                   </div>
-                   <div>
-                       <label for="incomeDate" class="block text-sm font-medium">Fecha</label>
-                       <input id="incomeDate" type="date" class="w-full p-2 border rounded" value="2025-06-02">
-                   </div>
-                   <button id="registerIncome" class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded">Registrar Ingreso</button>
-               </div>
+                <!-- Tabla responsiva -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="p-3 text-sm lg:text-base font-semibold">Casa</th>
+                                <th class="p-3 text-sm lg:text-base font-semibold">Tipo</th>
+                                <th class="p-3 text-sm lg:text-base font-semibold">Gastos</th>
+                                <th class="p-3 text-sm lg:text-base font-semibold hidden sm:table-cell">Ingresos</th>
+                                <th class="p-3 text-sm lg:text-base font-semibold hidden sm:table-cell">Saldo</th>
+                                <th class="p-3 text-sm lg:text-base font-semibold">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="housesList"></tbody>
+                    </table>
+                </div>
+                <p class="mt-4 text-xs lg:text-sm text-gray-600">Haz clic en una casa para ver el detallado de gastos e ingresos.</p>
 
-               <h2 class="text-xl font-semibold">Ingresos Registrados</h2>
-               <table class="w-full text-left border-collapse">
-                   <thead>
-                       <tr class="bg-gray-200">
-                           <th class="p-3">Fecha</th>
-                           <th class="p-3">Descripción</th>
-                           <th class="p-3">Valor</th>
-                           <th class="p-3">Acciones</th>
-                       </tr>
-                   </thead>
-                   <tbody id="incomesList"></tbody>
-               </table>
-           </section>
+                <!-- Detalle de Casa (expandible) -->
+                <div id="houseExpensesDetail" class="hidden mt-6 bg-gray-50 rounded-lg p-4">
+                    <h3 id="houseExpensesTitle" class="text-lg lg:text-xl font-semibold mb-4">Detallado de Transacciones</h3>
+                    
+                    <!-- Pestañas para Gastos e Ingresos -->
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <button id="tabGastos" class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm lg:text-base">Gastos</button>
+                        <button id="tabIngresos" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg text-sm lg:text-base">Ingresos</button>
+                    </div>
+                    
+                    <!-- Contenido de Gastos -->
+                    <div id="contentGastos">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse mb-4">
+                                <thead>
+                                    <tr class="bg-gray-200">
+                                        <th class="p-3 text-sm lg:text-base">Fecha</th>
+                                        <th class="p-3 text-sm lg:text-base">Descripción</th>
+                                        <th class="p-3 text-sm lg:text-base">Valor</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="houseExpensesList"></tbody>
+                            </table>
+                        </div>
+                        <p id="houseExpensesTotal" class="text-lg font-medium mb-4">Total Gastos: $0</p>
+                    </div>
+                    
+                    <!-- Contenido de Ingresos -->
+                    <div id="contentIngresos" class="hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse mb-4">
+                                <thead>
+                                    <tr class="bg-gray-200">
+                                        <th class="p-3 text-sm lg:text-base">Fecha</th>
+                                        <th class="p-3 text-sm lg:text-base">Descripción</th>
+                                        <th class="p-3 text-sm lg:text-base">Valor</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="houseIncomesList"></tbody>
+                            </table>
+                        </div>
+                        <p id="houseIncomesTotal" class="text-lg font-medium mb-4">Total Ingresos: $0</p>
+                    </div>
+                    
+                    <!-- Botones de exportación -->
+                    <div class="flex flex-wrap gap-2 mt-4">
+                        <button id="exportDetailPdf" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm lg:text-base transition-colors duration-200">Exportar PDF</button>
+                        <button id="exportDetailExcel" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm lg:text-base transition-colors duration-200">Exportar Excel</button>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-           <section id="reportes" class="hidden space-y-6">
-               <h2 class="text-xl font-semibold">Reportes</h2>
-               <div class="space-y-4">
-                   <div class="bg-white p-4 rounded shadow">
-                       <h3 class="text-lg font-medium">Reporte por Casa</h3>
-                       <div class="mt-2">
-                           <label for="reportHouse" class="block text-sm font-medium">Seleccionar Casa</label>
-                           <select id="reportHouse" class="w-full p-2 border rounded">
-                               <option value="">Seleccione una casa</option>
-                           </select>
-                           <button id="generateHouseReport" class="mt-2 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded">Generar Reporte</button>
-                       </div>
-                   </div>
+        <!-- Gastos Section -->
+        <section id="gastos" class="hidden space-y-6 fade-in">
+            <h2 class="text-xl lg:text-2xl font-semibold flex items-center">
+                <span class="mr-2">💰</span>
+                Registro de Gastos
+            </h2>
+            
+            <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg space-y-4">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div>
+                        <label for="expenseDescription" class="block text-sm font-medium mb-2">Descripción</label>
+                        <input id="expenseDescription" type="text" class="w-full p-3 border rounded-lg text-sm lg:text-base" placeholder="Descripción del gasto">
+                    </div>
+                    <div>
+                        <label for="expenseAmount" class="block text-sm font-medium mb-2">Valor Total</label>
+                        <input id="expenseAmount" type="text" class="w-full p-3 border rounded-lg text-sm lg:text-base" data-value="0" oninput="formatInput(this)" placeholder="$0">
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div>
+                        <label for="expenseDate" class="block text-sm font-medium mb-2">Fecha</label>
+                        <input id="expenseDate" type="date" class="w-full p-3 border rounded-lg text-sm lg:text-base" value="2025-06-02">
+                    </div>
+                    <div>
+                        <label for="expenseHouse" class="block text-sm font-medium mb-2">Asignar a Casa</label>
+                        <select id="expenseHouse" class="w-full p-3 border rounded-lg text-sm lg:text-base">
+                            <option value="">Seleccione una casa</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-2">
+                    <input id="sharedExpense" type="checkbox" class="w-4 h-4 text-blue-600">
+                    <label for="sharedExpense" class="text-sm font-medium">Gasto compartido entre varias casas del conjunto</label>
+                </div>
+                
+                <div id="sharedHouseAssignments" class="hidden">
+                    <p class="text-sm font-medium mb-3">Distribución por Casa del Conjunto</p>
+                    <div id="sharedHousesList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+                </div>
+                
+                <button id="registerExpense" class="w-full lg:w-auto bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg text-sm lg:text-base font-medium transition-colors duration-200">
+                    Registrar Gasto
+                </button>
+            </div>
 
-                   <div class="bg-white p-4 rounded shadow">
-                       <h3 class="text-lg font-medium">Reporte Consolidado</h3>
-                       <div class="mt-2 space-y-2">
-                           <label class="block text-sm font-medium">Período</label>
-                           <input id="consolidatedStartDate" type="date" class="p-2 border rounded" value="2025-01-01">
-                           <input id="consolidatedEndDate" type="date" class="p-2 border rounded" value="2025-06-02">
-                           <button id="generateConsolidatedReport" class="mt-2 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded">Generar Reporte</button>
-                       </div>
-                   </div>
+            <!-- Lista de Gastos -->
+            <div class="bg-white rounded-xl shadow-lg p-4 lg:p-6">
+                <h2 class="text-xl lg:text-2xl font-semibold mb-4">Gastos Registrados</h2>
+                
+                <div class="mb-4 flex flex-col sm:flex-row gap-4">
+                    <select id="filterHouses" class="p-2 border rounded-lg text-sm lg:text-base">
+                        <option value="all">Todas las casas</option>
+                    </select>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="p-3 text-sm lg:text-base">Fecha</th>
+                                <th class="p-3 text-sm lg:text-base">Descripción</th>
+                                <th class="p-3 text-sm lg:text-base">Casa</th>
+                                <th class="p-3 text-sm lg:text-base">Valor</th>
+                                <th class="p-3 text-sm lg:text-base">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expensesList"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
 
-                   <div class="bg-white p-4 rounded shadow">
-                       <h3 class="text-lg font-medium">Reporte Detallado de Ingresos</h3>
-                       <div class="mt-2 space-y-2">
-                           <label class="block text-sm font-medium">Período</label>
-                           <input id="incomeStartDate" type="date" class="p-2 border rounded" value="2025-01-01">
-                           <input id="incomeEndDate" type="date" class="p-2 border rounded" value="2025-06-02">
-                           <button id="generateIncomeReport" class="mt-2 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded">Generar Reporte</button>
-                       </div>
-                   </div>
+        <!-- Ingresos Section -->
+        <section id="ingresos" class="hidden space-y-6 fade-in">
+            <h2 class="text-xl lg:text-2xl font-semibold flex items-center">
+                <span class="mr-2">💵</span>
+                Registro de Ingresos
+            </h2>
+            
+            <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg space-y-4">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div>
+                        <label for="incomeDescription" class="block text-sm font-medium mb-2">Descripción</label>
+                        <input id="incomeDescription" type="text" class="w-full p-3 border rounded-lg text-sm lg:text-base" placeholder="Descripción del ingreso">
+                    </div>
+                    <div>
+                        <label for="incomeAmount" class="block text-sm font-medium mb-2">Valor</label>
+                        <input id="incomeAmount" type="text" class="w-full p-3 border rounded-lg text-sm lg:text-base" data-value="0" oninput="formatInput(this)" placeholder="$0">
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div>
+                        <label for="incomeDate" class="block text-sm font-medium mb-2">Fecha</label>
+                        <input id="incomeDate" type="date" class="w-full p-3 border rounded-lg text-sm lg:text-base" value="2025-06-02">
+                    </div>
+                    <div>
+                        <label for="incomeHouse" class="block text-sm font-medium mb-2">Asignar a Casa (solo independientes)</label>
+                        <select id="incomeHouse" class="w-full p-3 border rounded-lg text-sm lg:text-base">
+                            <option value="">Conjunto Residencial</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <p class="text-sm text-blue-800">
+                        <strong>Nota:</strong> Los ingresos del conjunto van al fondo común. Los ingresos de casas independientes van directamente a cada casa.
+                    </p>
+                </div>
+                
+                <button id="registerIncome" class="w-full lg:w-auto bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg text-sm lg:text-base font-medium transition-colors duration-200">
+                    Registrar Ingreso
+                </button>
+            </div>
 
-                   <div id="reportContent" class="bg-white p-4 rounded shadow"></div>
-                   <button id="exportPdf" class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded">Exportar a PDF</button>
-               </div>
-           </section>
+            <!-- Lista de Ingresos -->
+            <div class="bg-white rounded-xl shadow-lg p-4 lg:p-6">
+                <h2 class="text-xl lg:text-2xl font-semibold mb-4">Ingresos Registrados</h2>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="p-3 text-sm lg:text-base">Fecha</th>
+                                <th class="p-3 text-sm lg:text-base">Descripción</th>
+                                <th class="p-3 text-sm lg:text-base">Casa/Origen</th>
+                                <th class="p-3 text-sm lg:text-base">Valor</th>
+                                <th class="p-3 text-sm lg:text-base">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="incomesList"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
 
-           <div id="editModal" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center hidden">
-               <div class="bg-white p-6 rounded shadow-lg w-full max-w-md">
-                   <h2 id="editModalTitle" class="text-xl font-semibold mb-4">Editar Transacción</h2>
-                   <div class="space-y-4">
-                       <div>
-                           <label for="editDescription" class="block text-sm font-medium">Descripción</label>
-                           <input id="editDescription" type="text" class="w-full p-2 border rounded">
-                       </div>
-                       <div>
-                           <label for="editAmount" class="block text-sm font-medium">Valor</label>
-                           <input id="editAmount" type="text" class="w-full p-2 border rounded" data-value="0" oninput="formatInput(this)">
-                       </div>
-                       <div>
-                           <label for="editDate" class="block text-sm font-medium">Fecha</label>
-                           <input id="editDate" type="date" class="w-full p-2 border rounded" value="2025-06-02">
-                       </div>
-                       <div id="editHouseSection">
-                           <label for="editHouse" class="block text-sm font-medium">Asignar a Casa</label>
-                           <select id="editHouse" class="w-full p-2 border rounded">
-                               <option value="">Seleccione una casa</option>
-                           </select>
-                       </div>
-                       <div class="flex justify-end space-x-2">
-                           <button id="cancelEdit" class="bg-gray-500 hover:bg-gray-600 text-white p-2 rounded">Cancelar</button>
-                           <button id="saveEdit" class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded">Guardar</button>
-                       </div>
-                   </div>
-               </div>
-           </div>
-       </main>
-   </body>
-   </html>
+        <!-- Reportes Section -->
+        <section id="reportes" class="hidden space-y-6 fade-in">
+            <h2 class="text-xl lg:text-2xl font-semibold flex items-center">
+                <span class="mr-2">📊</span>
+                Reportes
+            </h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Reporte por Casa -->
+                <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg">
+                    <h3 class="text-lg font-medium mb-4 flex items-center">
+                        <span class="mr-2">🏠</span>
+                        Reporte por Casa
+                    </h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="reportHouse" class="block text-sm font-medium mb-2">Seleccionar Casa</label>
+                            <select id="reportHouse" class="w-full p-3 border rounded-lg text-sm lg:text-base">
+                                <option value="">Seleccione una casa</option>
+                            </select>
+                        </div>
+                        <button id="generateHouseReport" class="w-full bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
+                            Generar Reporte
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Reporte Consolidado -->
+                <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg">
+                    <h3 class="text-lg font-medium mb-4 flex items-center">
+                        <span class="mr-2">📋</span>
+                        Reporte Consolidado
+                    </h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Período</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <input id="consolidatedStartDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-01-01">
+                                <input id="consolidatedEndDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-06-02">
+                            </div>
+                        </div>
+                        <button id="generateConsolidatedReport" class="w-full bg-purple-500 hover:bg-purple-600 text-white p-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
+                            Generar Reporte
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Reporte de Ingresos -->
+                <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg">
+                    <h3 class="text-lg font-medium mb-4 flex items-center">
+                        <span class="mr-2">💰</span>
+                        Reporte de Ingresos
+                    </h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Período</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <input id="incomeStartDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-01-01">
+                                <input id="incomeEndDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-06-02">
+                            </div>
+                        </div>
+                        <button id="generateIncomeReport" class="w-full bg-green-500 hover:bg-green-600 text-white p-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
+                            Generar Reporte
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Reporte Comparativo -->
+                <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg">
+                    <h3 class="text-lg font-medium mb-4 flex items-center">
+                        <span class="mr-2">⚖️</span>
+                        Comparativo Conjunto vs Independientes
+                    </h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Período</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <input id="comparativeStartDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-01-01">
+                                <input id="comparativeEndDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-06-02">
+                            </div>
+                        </div>
+                        <button id="generateComparativeReport" class="w-full bg-orange-500 hover:bg-orange-600 text-white p-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
+                            Generar Reporte
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido del Reporte -->
+            <div id="reportContent" class="bg-white p-4 lg:p-6 rounded-xl shadow-lg"></div>
+            
+            <!-- Botón de exportación -->
+            <div class="flex justify-center">
+                <button id="exportPdf" class="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
+                    📄 Exportar a PDF
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal de Edición -->
+    <div id="editModal" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-md">
+            <h2 id="editModalTitle" class="text-xl font-semibold mb-4">Editar Transacción</h2>
+            <div class="space-y-4">
+                <div>
+                    <label for="editDescription" class="block text-sm font-medium mb-2">Descripción</label>
+                    <input id="editDescription" type="text" class="w-full p-3 border rounded-lg">
+                </div>
+                <div>
+                    <label for="editAmount" class="block text-sm font-medium mb-2">Valor</label>
+                    <input id="editAmount" type="text" class="w-full p-3 border rounded-lg" data-value="0" oninput="formatInput(this)">
+                </div>
+                <div>
+                    <label for="editDate" class="block text-sm font-medium mb-2">Fecha</label>
+                    <input id="editDate" type="date" class="w-full p-3 border rounded-lg" value="2025-06-02">
+                </div>
+                <div id="editHouseSection">
+                    <label for="editHouse" class="block text-sm font-medium mb-2">Asignar a Casa</label>
+                    <select id="editHouse" class="w-full p-3 border rounded-lg">
+                        <option value="">Seleccione una casa</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button id="cancelEdit" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors duration-200">
+                        Cancelar
+                    </button>
+                    <button id="saveEdit" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors duration-200">
+                        Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Nueva Casa -->
+    <div id="newHouseModal" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-md">
+            <h2 class="text-xl font-semibold mb-4">Nueva Casa</h2>
+            <div class="space-y-4">
+                <div>
+                    <label for="newHouseName" class="block text-sm font-medium mb-2">Nombre de la Casa</label>
+                    <input id="newHouseName" type="text" class="w-full p-3 border rounded-lg" placeholder="Ej: Casa 1, Villa A, etc.">
+                </div>
+                <div>
+                    <label for="newHouseType" class="block text-sm font-medium mb-2">Tipo de Casa</label>
+                    <select id="newHouseType" class="w-full p-3 border rounded-lg">
+                        <option value="conjunto">Conjunto Residencial</option>
+                        <option value="independiente">Casa Independiente</option>
+                    </select>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-600">
+                        <strong>Conjunto:</strong> Los ingresos van al fondo común, los gastos se debitan del fondo común.<br>
+                        <strong>Independiente:</strong> Ingresos y gastos son propios de la casa.
+                    </p>
+                </div>
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button id="cancelNewHouse" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors duration-200">
+                        Cancelar
+                    </button>
+                    <button id="saveNewHouse" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors duration-200">
+                        Crear Casa
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
