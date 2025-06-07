@@ -513,25 +513,39 @@
                     </div>
                 </div>
 
-                <!-- Reporte Consolidado -->
-                <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg">
-                    <h3 class="text-lg font-medium mb-4 flex items-center">
-                        <span class="mr-2">📋</span>
-                        Reporte Consolidado
-                    </h3>
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium mb-2">Período</label>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <input id="consolidatedStartDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-01-01">
-                                <input id="consolidatedEndDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-06-02">
-                            </div>
-                        </div>
-                        <button id="generateConsolidatedReport" class="w-full bg-purple-500 hover:bg-purple-600 text-white p-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
-                            Generar Reporte
-                        </button>
-                    </div>
-                </div>
+                <!-- Reporte Consolidado Avanzado -->
+<div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg">
+    <h3 class="text-lg font-medium mb-4 flex items-center">
+        <span class="mr-2">🎯</span>
+        Reporte Consolidado Avanzado
+    </h3>
+    <div class="space-y-4">
+        <div>
+            <label class="block text-sm font-medium mb-2">Período</label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input id="consolidatedAdvancedStartDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-01-01">
+                <input id="consolidatedAdvancedEndDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-06-02">
+            </div>
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-2">Tipo de Reporte</label>
+            <select id="consolidatedType" class="w-full p-3 border rounded-lg text-sm lg:text-base">
+                <option value="general">General (Conjunto + Independientes)</option>
+                <option value="conjunto">Solo Conjunto Residencial</option>
+                <option value="independientes">Solo Casas Independientes</option>
+                <option value="por_casa">Detallado por Cada Casa</option>
+            </select>
+        </div>
+        <div class="flex gap-2">
+            <button id="generateAdvancedReport" class="flex-1 bg-purple-500 hover:bg-purple-600 text-white p-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
+                🎯 Generar Reporte Avanzado
+            </button>
+            <button id="exportAllHousesExcel" class="bg-green-500 hover:bg-green-600 text-white p-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
+                📊 Excel Completo
+            </button>
+        </div>
+    </div>
+</div>
 
                 <!-- Reporte de Ingresos -->
                 <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg">

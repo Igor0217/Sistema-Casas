@@ -76,6 +76,53 @@ document.addEventListener('DOMContentLoaded', () => {
     
     updateAllViews();
   }
+  
+  // Listener en tiempo real para cambios en la base de datos*****************************
+function setupRealtimeSync() {
+  console.log('Configurando sincronización en tiempo real...');
+  
+  db.collection('userData').doc('appData').onSnapshot((doc) => {
+    console.log('Cambio detectado en Firestore');
+    
+    if (doc.exists) {
+      const data = doc.data();
+      const newHouses = data.houses || [];
+      const newExpenses = data.expenses || [];
+      const newIncomes = data.incomes || [];
+      
+      // Verificar si hay cambios reales
+      const hasChanges = 
+        JSON.stringify(houses) !== JSON.stringify(newHouses) ||
+        JSON.stringify(expenses) !== JSON.stringify(newExpenses) ||
+        JSON.stringify(incomes) !== JSON.stringify(newIncomes);
+      
+      if (hasChanges) {
+        console.log('Actualizando datos desde Firestore...');
+        
+        houses = newHouses;
+        expenses = newExpenses;
+        incomes = newIncomes;
+        
+        // Migrar datos si es necesario
+        migrateOldData();
+        
+        // Actualizar localStorage como backup
+        localStorage.setItem('houses', JSON.stringify(houses));
+        localStorage.setItem('expenses', JSON.stringify(expenses));
+        localStorage.setItem('incomes', JSON.stringify(incomes));
+        
+        // Actualizar todas las vistas
+        updateAllViews();
+        
+        // Mostrar notificación
+        showNotification('📱 Datos actualizados automáticamente', 'info');
+      }
+    }
+  }, (error) => {
+    console.error('Error en sincronización en tiempo real:', error);
+  });
+}
+//**********************************************************
 
   // Cargar desde localStorage
   function loadFromLocalStorage() {
@@ -1396,28 +1443,94 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Exportar a PDF (función básica - se puede expandir)
   document.getElementById('exportPdf').addEventListener('click', () => {
-    const reportContent = document.getElementById('reportContent');
-    if (reportContent.innerHTML.trim() === '') {
-      showNotification('Por favor, genere un reporte antes de exportar a PDF.', 'error');
-      return;
-    }
-
-    // Crear PDF básico
-    const doc = new jsPDF();
-    const title = reportContent.querySelector('h3');
-    const titleText = title ? title.textContent : 'Reporte';
-    
-    doc.setFontSize(16);
-    doc.text(titleText, 20, 20);
+  const reportContent = document.getElementById('reportContent');
+  if (reportContent.innerHTML.trim() === '') {
+    showNotification('Por favor, genere un reporte antes de exportar a PDF.', 'error');
+    return;
+  }
+  const doc = new jsPDF();
+  const title = reportContent.querySelector('h3');
+  const titleText = title ? title.textContent : 'Reporte';
+  
+  // Header profesional
+  doc.setFillColor(59, 130, 246); // Azul
+  doc.rect(0, 0, 220, 40, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
+  doc.text('SISTEMA DE GESTIÓN DE CASAS', 20, 15);
+  
+  doc.setFontSize(14);
+  doc.text(titleText, 20, 25);
+  
+  doc.setFontSize(10);
+  doc.text(`Generado: ${new Date().toLocaleDateString('es-CO')} ${new Date().toLocaleTimeString('es-CO')}`, 20, 35);
+  
+  // Resetear color de texto
+  doc.setTextColor(0, 0, 0);
+  let yPos = 50;
+  
+  // Obtener datos del reporte visible
+  const tables = reportContent.querySelectorAll('table');
+  const summaryCards = reportContent.querySelectorAll('.bg-green-100, .bg-red-100, .bg-yellow-100, .bg-blue-50, .bg-pink-50');
+  
+  // Agregar resumen si existe
+  if (summaryCards.length > 0) {
     doc.setFontSize(12);
-    doc.text('Generado: ' + new Date().toLocaleDateString('es-CO'), 20, 30);
+    doc.text('RESUMEN FINANCIERO', 20, yPos);
+    yPos += 10;
     
-    // Aquí se podría agregar más contenido al PDF
-    // Por simplicidad, solo se agrega el título y fecha
+    summaryCards.forEach(card => {
+      const texts = card.textContent.trim().split('\n').filter(t => t.trim());
+      texts.forEach(text => {
+        if (text.trim() && yPos < 280) {
+          doc.setFontSize(10);
+          doc.text(text.trim(), 20, yPos);
+          yPos += 6;
+        }
+      });
+    });
+    yPos += 10;
+  }
+  
+  // Agregar tablas
+  tables.forEach((table, index) => {
+    if (yPos > 250) {
+      doc.addPage();
+      yPos = 20;
+    }
     
-    doc.save(`${titleText.toLowerCase().replace(/\s+/g, '-')}.pdf`);
-    showNotification('PDF exportado correctamente.', 'success');
+    const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
+    const rows = Array.from(table.querySelectorAll('tbody tr')).map(tr => 
+      Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
+    );
+    
+    if (headers.length > 0 && rows.length > 0) {
+      doc.autoTable({
+        startY: yPos,
+        head: [headers],
+        body: rows,
+        theme: 'striped',
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontStyle: 'bold' }
+      });
+      
+      yPos = doc.lastAutoTable.finalY + 15;
+    }
   });
+  
+  // Footer
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(128, 128, 128);
+    doc.text(`Página ${i} de ${pageCount} - Sistema de Gestión de Casas`, 20, 290);
+  }
+  
+  doc.save(`${titleText.toLowerCase().replace(/\s+/g, '-')}.pdf`);
+  showNotification('📄 PDF profesional exportado correctamente.', 'success');
+});
 
   // ==================== INICIALIZACIÓN ====================
 
@@ -1578,4 +1691,240 @@ document.getElementById('exportDetailExcel').addEventListener('click', () => {
   XLSX.writeFile(wb, `detalle-${houseNameClean.toLowerCase().replace(/\s+/g, '-')}.xlsx`);
   showNotification('Excel exportado correctamente.', 'success');
 });
+// Exportar Excel profesional con todas las casas
+function exportAllHousesToExcel() {
+  const wb = XLSX.utils.book_new();
+  
+  // Hoja de resumen
+  const summaryData = [
+    ['SISTEMA DE GESTIÓN DE CASAS'],
+    [`Reporte generado: ${new Date().toLocaleDateString('es-CO')} ${new Date().toLocaleTimeString('es-CO')}`],
+    [''],
+    ['RESUMEN GENERAL'],
+    ['Total Casas:', houses.length],
+    ['Total Ingresos:', incomes.reduce((sum, inc) => sum + inc.amount, 0)],
+    ['Total Gastos:', expenses.reduce((sum, exp) => sum + exp.amount, 0)],
+    [''],
+    ['DETALLE POR CASA'],
+    ['Casa', 'Tipo', 'Ingresos', 'Gastos', 'Saldo']
+  ];
+  
+  houses.forEach(house => {
+    const houseExpenses = expenses.filter(exp => exp.house === house.name);
+    const houseIncomes = incomes.filter(inc => inc.house === house.name);
+    const totalExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalIncomes = houseIncomes.reduce((sum, inc) => sum + inc.amount, 0);
+    const balance = totalIncomes - totalExpenses;
+    
+    summaryData.push([
+      house.name,
+      house.type === 'conjunto' ? 'Conjunto' : 'Independiente',
+      totalIncomes,
+      totalExpenses,
+      balance
+    ]);
+  });
+  
+  const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+  XLSX.utils.book_append_sheet(wb, summaryWs, 'Resumen');
+  
+  // Hoja para cada casa
+  houses.forEach(house => {
+    const houseExpenses = expenses.filter(exp => exp.house === house.name);
+    const houseIncomes = incomes.filter(inc => inc.house === house.name);
+    
+    const houseData = [
+      [`DETALLE - ${house.name.toUpperCase()}`],
+      [`Tipo: ${house.type === 'conjunto' ? 'Conjunto Residencial' : 'Casa Independiente'}`],
+      [`Fecha: ${new Date().toLocaleDateString('es-CO')}`],
+      [''],
+      ['RESUMEN FINANCIERO'],
+      ['Concepto', 'Valor'],
+      ['Total Ingresos', houseIncomes.reduce((sum, inc) => sum + inc.amount, 0)],
+      ['Total Gastos', houseExpenses.reduce((sum, exp) => sum + exp.amount, 0)],
+      ['Saldo', houseIncomes.reduce((sum, inc) => sum + inc.amount, 0) - houseExpenses.reduce((sum, exp) => sum + exp.amount, 0)],
+      ['']
+    ];
+    
+    // Gastos
+    if (houseExpenses.length > 0) {
+      houseData.push(['GASTOS DETALLADOS']);
+      houseData.push(['Fecha', 'Descripción', 'Valor']);
+      houseExpenses.forEach(exp => {
+        houseData.push([exp.date, exp.description, exp.amount]);
+      });
+      houseData.push(['']);
+    }
+    
+    // Ingresos (solo para casas independientes)
+    if (house.type === 'independiente' && houseIncomes.length > 0) {
+      houseData.push(['INGRESOS DETALLADOS']);
+      houseData.push(['Fecha', 'Descripción', 'Valor']);
+      houseIncomes.forEach(inc => {
+        houseData.push([inc.date, inc.description, inc.amount]);
+      });
+    }
+    
+    const houseWs = XLSX.utils.aoa_to_sheet(houseData);
+    
+    // Formatear hoja
+    if (houseWs['!ref']) {
+      houseWs['!cols'] = [
+        { wch: 15 }, // Fecha
+        { wch: 40 }, // Descripción  
+        { wch: 15 }  // Valor
+      ];
+    }
+    
+    // Nombre de hoja válido (máximo 31 caracteres)
+    const sheetName = house.name.substring(0, 31).replace(/[\\/:*?[\]]/g, '');
+    XLSX.utils.book_append_sheet(wb, houseWs, sheetName);
+  });
+  
+  XLSX.writeFile(wb, `reporte-completo-casas-${new Date().toISOString().split('T')[0]}.xlsx`);
+  showNotification('📊 Excel profesional exportado correctamente.', 'success');
+}
+// Event listener para Excel completo
+document.getElementById('exportAllHousesExcel').addEventListener('click', exportAllHousesToExcel);
+// Reporte consolidado avanzado
+document.getElementById('generateAdvancedReport').addEventListener('click', () => {
+  const startDate = new Date(document.getElementById('consolidatedAdvancedStartDate').value);
+  const endDate = new Date(document.getElementById('consolidatedAdvancedEndDate').value);
+  const reportType = document.getElementById('consolidatedType').value;
+  
+  let reportHTML = '';
+  
+  if (reportType === 'conjunto') {
+    reportHTML = generateConjuntoReport(startDate, endDate);
+  } else if (reportType === 'independientes') {
+    reportHTML = generateIndependientesReport(startDate, endDate);
+  } else if (reportType === 'por_casa') {
+    reportHTML = generateDetailedByHouseReport(startDate, endDate);
+  } else {
+    reportHTML = generateGeneralAdvancedReport(startDate, endDate);
+  }
+  
+  document.getElementById('reportContent').innerHTML = reportHTML;
+  document.getElementById('reportContent').scrollIntoView({ behavior: 'smooth' });
+});
+function generateConjuntoReport(startDate, endDate) {
+  const conjuntoHouses = getHousesByType('conjunto');
+  const filteredExpenses = expenses.filter(exp => {
+    const expDate = new Date(exp.date);
+    return expDate >= startDate && expDate <= endDate && conjuntoHouses.some(h => h.name === exp.house);
+  });
+  const filteredIncomes = incomes.filter(inc => {
+    const incDate = new Date(inc.date);
+    return incDate >= startDate && incDate <= endDate && (!inc.house || inc.house === '');
+  });
+  
+  const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const totalIncomes = filteredIncomes.reduce((sum, inc) => sum + inc.amount, 0);
+  const balance = totalIncomes - totalExpenses;
+  
+  return `
+    <div class="fade-in">
+      <h3 class="text-xl font-bold mb-4">Reporte Conjunto Residencial</h3>
+      <p class="text-sm text-gray-600 mb-6">Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-green-100 p-4 rounded-lg">
+          <h4 class="font-semibold text-green-800">Ingresos del Fondo</h4>
+          <p class="text-2xl font-bold text-green-600">${formatter.format(totalIncomes)}</p>
+        </div>
+        <div class="bg-red-100 p-4 rounded-lg">
+          <h4 class="font-semibold text-red-800">Gastos del Conjunto</h4>
+          <p class="text-2xl font-bold text-red-600">${formatter.format(totalExpenses)}</p>
+        </div>
+        <div class="bg-yellow-100 p-4 rounded-lg">
+          <h4 class="font-semibold text-yellow-800">Saldo del Fondo</h4>
+          <p class="text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}">${formatter.format(balance)}</p>
+        </div>
+      </div>
+      
+      <div class="mb-6">
+        <h4 class="text-lg font-semibold mb-3">Casas del Conjunto (${conjuntoHouses.length})</h4>
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse border">
+            <thead>
+              <tr class="bg-gray-100">
+                <th class="border p-2 text-left">Casa</th>
+                <th class="border p-2 text-right">Gastos en el Período</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${conjuntoHouses.map(house => {
+                const houseExpenses = filteredExpenses.filter(exp => exp.house === house.name);
+                const totalHouseExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+                return `
+                  <tr>
+                    <td class="border p-2 font-medium">${house.name}</td>
+                    <td class="border p-2 text-right">${formatter.format(totalHouseExpenses)}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function generateIndependientesReport(startDate, endDate) {
+  const independientesHouses = getHousesByType('independiente');
+  
+  return `
+    <div class="fade-in">
+      <h3 class="text-xl font-bold mb-4">Reporte Casas Independientes</h3>
+      <p class="text-sm text-gray-600 mb-6">Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
+      
+      <div class="mb-6">
+        <h4 class="text-lg font-semibold mb-3">Casas Independientes (${independientesHouses.length})</h4>
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse border">
+            <thead>
+              <tr class="bg-gray-100">
+                <th class="border p-2 text-left">Casa</th>
+                <th class="border p-2 text-right">Ingresos</th>
+                <th class="border p-2 text-right">Gastos</th>
+                <th class="border p-2 text-right">Saldo</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${independientesHouses.map(house => {
+                const houseExpenses = expenses.filter(exp => {
+                  const expDate = new Date(exp.date);
+                  return expDate >= startDate && expDate <= endDate && exp.house === house.name;
+                });
+                const houseIncomes = incomes.filter(inc => {
+                  const incDate = new Date(inc.date);
+                  return incDate >= startDate && incDate <= endDate && inc.house === house.name;
+                });
+                const totalExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+                const totalIncomes = houseIncomes.reduce((sum, inc) => sum + inc.amount, 0);
+                const balance = totalIncomes - totalExpenses;
+                
+                return `
+                  <tr>
+                    <td class="border p-2 font-medium">${house.name}</td>
+                    <td class="border p-2 text-right text-green-600">${formatter.format(totalIncomes)}</td>
+                    <td class="border p-2 text-right text-red-600">${formatter.format(totalExpenses)}</td>
+                    <td class="border p-2 text-right font-semibold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}">${formatter.format(balance)}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+// Llamar estas funciones al final del DOMContentLoaded
+function initializeProfessionalFeatures() {
+  setupRealtimeSync();
+  setupAdvancedReportListeners();
+  console.log('Funcionalidades profesionales inicializadas');
+}
+
 });
