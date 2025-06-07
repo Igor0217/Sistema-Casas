@@ -1514,4 +1514,390 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Cargar datos iniciales
   console.log('Sistema iniciado correctamente con funciones de exportación compatibles');
+// ==================== BOTONES DEL DASHBOARD ====================
+  // Exportar PDF del detalle de casa desde dashboard
+  const exportDetailPdfBtn = document.getElementById('exportDetailPdf');
+  if (exportDetailPdfBtn) {
+    exportDetailPdfBtn.addEventListener('click', () => {
+      const houseExpensesDetail = document.getElementById('houseExpensesDetail');
+      if (houseExpensesDetail.classList.contains('hidden')) {
+        showNotification('Por favor, seleccione una casa para ver el detallado antes de exportar.', 'error');
+        return;
+      }
+      const titleElement = document.getElementById('houseExpensesTitle');
+      const titleText = titleElement.textContent;
+      const houseName = titleText.split(' - ')[1] || 'Casa';
+      
+      // Obtener datos de la casa
+      const houseNameClean = houseName.replace('Detallado de Transacciones - ', '').split(' (')[0];
+      const house = houses.find(h => h.name === houseNameClean);
+      const houseExpenses = expenses.filter(exp => exp.house === houseNameClean);
+      const houseIncomes = incomes.filter(inc => inc.house === houseNameClean);
+      
+      if (houseExpenses.length === 0 && houseIncomes.length === 0) {
+        showNotification('No hay datos para exportar.', 'warning');
+        return;
+      }
+      // Crear PDF profesional
+      const doc = new jsPDF();
+      
+      // Header profesional
+      doc.setFillColor(59, 130, 246);
+      doc.rect(0, 0, 220, 40, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(18);
+      doc.text('SISTEMA DE GESTIÓN DE CASAS', 20, 15);
+      
+      doc.setFontSize(14);
+      doc.text(`Detalle de ${houseNameClean}`, 20, 25);
+      
+      doc.setFontSize(10);
+      doc.text(`Generado: ${new Date().toLocaleDateString('es-CO')} ${new Date().toLocaleTimeString('es-CO')}`, 20, 35);
+      
+      // Resetear color
+      doc.setTextColor(0, 0, 0);
+      let yPos = 50;
+      
+      // Información de la casa
+      doc.setFontSize(12);
+      doc.text(`Casa: ${houseNameClean}`, 20, yPos);
+      yPos += 8;
+      
+      if (house) {
+        doc.setFontSize(10);
+        doc.text(`Tipo: ${house.type === 'conjunto' ? 'Conjunto Residencial' : 'Casa Independiente'}`, 20, yPos);
+        yPos += 15;
+      }
+      
+      // Resumen financiero
+      const totalExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+      const totalIncomes = houseIncomes.reduce((sum, inc) => sum + inc.amount, 0);
+      const balance = totalIncomes - totalExpenses;
+      
+      doc.setFillColor(248, 250, 252);
+      doc.rect(15, yPos - 5, 180, 30, 'F');
+      
+      doc.setFontSize(11);
+      doc.text(`Total Ingresos: ${formatter.format(totalIncomes)}`, 20, yPos + 5);
+      doc.text(`Total Gastos: ${formatter.format(totalExpenses)}`, 20, yPos + 15);
+      doc.setTextColor(balance >= 0 ? 34 : 239, balance >= 0 ? 197 : 68, balance >= 0 ? 94 : 68);
+      doc.text(`Saldo: ${formatter.format(balance)}`, 120, yPos + 10);
+      doc.setTextColor(0, 0, 0);
+      
+      yPos += 40;
+      
+      // Tabla de gastos
+      if (houseExpenses.length > 0) {
+        doc.setFontSize(12);
+        doc.text('GASTOS DETALLADOS', 20, yPos);
+        yPos += 10;
+        
+        const expensesData = houseExpenses.map(exp => [
+          exp.date,
+          exp.description,
+          formatter.format(exp.amount)
+        ]);
+        
+        doc.autoTable({
+          startY: yPos,
+          head: [['Fecha', 'Descripción', 'Valor']],
+          body: expensesData,
+          theme: 'striped',
+          styles: { fontSize: 9, cellPadding: 3 },
+          headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontStyle: 'bold' },
+          columnStyles: {
+{ cellWidth: 25 },
+{ cellWidth: 100 },
+{ cellWidth: 30, halign: 'right' }
+          }
+        });
+        
+        yPos = doc.lastAutoTable.finalY + 15;
+      }
+      
+      // Tabla de ingresos (solo para casas independientes)
+      if (house && house.type === 'independiente' && houseIncomes.length > 0) {
+        if (yPos > 250) {
+          doc.addPage();
+          yPos = 20;
+        }
+        
+        doc.setFontSize(12);
+        doc.text('INGRESOS DETALLADOS', 20, yPos);
+        yPos += 10;
+        
+        const incomesData = houseIncomes.map(inc => [
+          inc.date,
+          inc.description,
+          formatter.format(inc.amount)
+        ]);
+        
+        doc.autoTable({
+          startY: yPos,
+          head: [['Fecha', 'Descripción', 'Valor']],
+          body: incomesData,
+          theme: 'striped',
+          styles: { fontSize: 9, cellPadding: 3 },
+          headStyles: { fillColor: [34, 197, 94], textColor: [255, 255, 255], fontStyle: 'bold' },
+          columnStyles: {
+{ cellWidth: 25 },
+{ cellWidth: 100 },
+{ cellWidth: 30, halign: 'right' }
+          }
+        });
+      }
+      
+      // Footer
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(128, 128, 128);
+        doc.text(`Página ${i} de ${pageCount} - Sistema de Gestión de Casas`, 20, 290);
+      }
+      
+      doc.save(`detalle-${houseNameClean.toLowerCase().replace(/\s+/g, '-')}.pdf`);
+      showNotification('📄 PDF del detalle exportado correctamente.', 'success');
+    });
+  }
+  // Exportar Excel del detalle de casa desde dashboard
+  const exportDetailExcelBtn = document.getElementById('exportDetailExcel');
+  if (exportDetailExcelBtn) {
+    exportDetailExcelBtn.addEventListener('click', () => {
+      const houseExpensesDetail = document.getElementById('houseExpensesDetail');
+      if (houseExpensesDetail.classList.contains('hidden')) {
+        showNotification('Por favor, seleccione una casa para ver el detallado antes de exportar.', 'error');
+        return;
+      }
+      const titleElement = document.getElementById('houseExpensesTitle');
+      const titleText = titleElement.textContent;
+      const houseName = titleText.split(' - ')[1] || 'Casa';
+      
+      // Obtener datos de la casa
+      const houseNameClean = houseName.replace('Detallado de Transacciones - ', '').split(' (')[0];
+      const house = houses.find(h => h.name === houseNameClean);
+      const houseExpenses = expenses.filter(exp => exp.house === houseNameClean);
+      const houseIncomes = incomes.filter(inc => inc.house === houseNameClean);
+      
+      if (houseExpenses.length === 0 && houseIncomes.length === 0) {
+        showNotification('No hay datos para exportar.', 'warning');
+        return;
+      }
+      const wb = XLSX.utils.book_new();
+      
+      // Datos principales
+      const mainData = [
+        ['SISTEMA DE GESTIÓN DE CASAS'],
+        [`Detalle de ${houseNameClean}`],
+        [`Tipo: ${house ? (house.type === 'conjunto' ? 'Conjunto Residencial' : 'Casa Independiente') : 'N/A'}`],
+        [`Fecha de generación: ${new Date().toLocaleDateString('es-CO')} ${new Date().toLocaleTimeString('es-CO')}`],
+        [''],
+        ['RESUMEN FINANCIERO'],
+        ['Concepto', 'Valor'],
+        ['Total Ingresos', houseIncomes.reduce((sum, inc) => sum + inc.amount, 0)],
+        ['Total Gastos', houseExpenses.reduce((sum, exp) => sum + exp.amount, 0)],
+        ['Saldo', houseIncomes.reduce((sum, inc) => sum + inc.amount, 0) - houseExpenses.reduce((sum, exp) => sum + exp.amount, 0)],
+        ['']
+      ];
+      
+      // Agregar gastos
+      if (houseExpenses.length > 0) {
+        mainData.push(['GASTOS DETALLADOS']);
+        mainData.push(['Fecha', 'Descripción', 'Valor']);
+        houseExpenses.forEach(exp => {
+          mainData.push([exp.date, exp.description, exp.amount]);
+        });
+        mainData.push(['']);
+      }
+      
+      // Agregar ingresos (solo para independientes)
+      if (house && house.type === 'independiente' && houseIncomes.length > 0) {
+        mainData.push(['INGRESOS DETALLADOS']);
+        mainData.push(['Fecha', 'Descripción', 'Valor']);
+        houseIncomes.forEach(inc => {
+          mainData.push([inc.date, inc.description, inc.amount]);
+        });
+      }
+      
+      const ws = XLSX.utils.aoa_to_sheet(mainData);
+      
+      // Formatear hoja
+      if (ws['!ref']) {
+        ws['!cols'] = [
+          { wch: 20 },
+          { wch: 40 },
+          { wch: 15 }
+        ];
+      }
+      
+      XLSX.utils.book_append_sheet(wb, ws, 'Detalle');
+      
+      XLSX.writeFile(wb, `detalle-${houseNameClean.toLowerCase().replace(/\s+/g, '-')}.xlsx`);
+      showNotification('📊 Excel del detalle exportado correctamente.', 'success');
+    });
+  }
+  // ==================== REPORTE ESPECÍFICO DEL CONJUNTO RESIDENCIAL ====================
+  // Función para generar reporte específico del conjunto
+  function generateConjuntoResidencialReport(startDate, endDate) {
+    const conjuntoHouses = getHousesByType('conjunto');
+    
+    // Filtrar datos por período
+    const filteredExpenses = expenses.filter(exp => {
+      const expDate = new Date(exp.date);
+      return expDate >= startDate && expDate <= endDate && conjuntoHouses.some(h => h.name === exp.house);
+    });
+    
+    const filteredIncomes = incomes.filter(inc => {
+      const incDate = new Date(inc.date);
+      return incDate >= startDate && incDate <= endDate && (!inc.house || inc.house === '');
+    });
+    
+    const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalIncomes = filteredIncomes.reduce((sum, inc) => sum + inc.amount, 0);
+    const balance = totalIncomes - totalExpenses;
+    
+    let reportHTML = `
+      <div class="fade-in">
+        <h3 class="text-xl font-bold mb-4">Reporte Conjunto Residencial</h3>
+        <p class="text-sm text-gray-600 mb-6">Período: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
+        
+        <!-- Resumen del Fondo Común -->
+        <div class="bg-blue-50 p-6 rounded-xl mb-6">
+          <h4 class="text-lg font-bold text-blue-800 mb-4 flex items-center">
+            <span class="mr-2">🏘️</span>
+            Fondo Común del Conjunto Residencial
+          </h4>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-green-100 p-4 rounded-lg">
+              <h5 class="font-semibold text-green-800">Total Ingresos</h5>
+              <p class="text-2xl font-bold text-green-600">${formatter.format(totalIncomes)}</p>
+            </div>
+            <div class="bg-red-100 p-4 rounded-lg">
+              <h5 class="font-semibold text-red-800">Total Gastos</h5>
+              <p class="text-2xl font-bold text-red-600">${formatter.format(totalExpenses)}</p>
+            </div>
+            <div class="bg-yellow-100 p-4 rounded-lg">
+              <h5 class="font-semibold text-yellow-800">Saldo del Fondo</h5>
+              <p class="text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}">${formatter.format(balance)}</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Detalle de Ingresos -->
+        ${filteredIncomes.length > 0 ? `
+        <div class="mb-6">
+          <h4 class="text-lg font-semibold mb-3 flex items-center">
+            <span class="mr-2">💵</span>
+            Ingresos del Conjunto (${filteredIncomes.length})
+          </h4>
+          <div class="overflow-x-auto">
+            <table class="w-full border-collapse border">
+              <thead>
+                <tr class="bg-green-100">
+                  <th class="border p-2 text-left">Fecha</th>
+                  <th class="border p-2 text-left">Descripción</th>
+                  <th class="border p-2 text-right">Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredIncomes.map(inc => `
+                  <tr>
+                    <td class="border p-2">${inc.date}</td>
+                    <td class="border p-2">${inc.description}</td>
+                    <td class="border p-2 text-right font-semibold text-green-600">${formatter.format(inc.amount)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        ` : ''}
+        
+        <!-- Gastos Totales por Casa -->
+        <div class="mb-6">
+          <h4 class="text-lg font-semibold mb-3 flex items-center">
+            <span class="mr-2">💰</span>
+            Gastos del Conjunto por Casa
+          </h4>
+          <div class="overflow-x-auto">
+            <table class="w-full border-collapse border">
+              <thead>
+                <tr class="bg-red-100">
+                  <th class="border p-2 text-left">Casa</th>
+                  <th class="border p-2 text-right">Total Gastos</th>
+                  <th class="border p-2 text-center">% del Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${conjuntoHouses.map(house => {
+                  const houseExpenses = filteredExpenses.filter(exp => exp.house === house.name);
+                  const totalHouseExpenses = houseExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+                  const percentage = totalExpenses > 0 ? ((totalHouseExpenses / totalExpenses) * 100).toFixed(1) : 0;
+                  
+                  return `
+                    <tr>
+                      <td class="border p-2 font-medium">${house.name}</td>
+                      <td class="border p-2 text-right font-semibold text-red-600">${formatter.format(totalHouseExpenses)}</td>
+                      <td class="border p-2 text-center">${percentage}%</td>
+                    </tr>
+                  `;
+                }).join('')}
+                <tr class="bg-gray-100 font-bold">
+                  <td class="border p-2">TOTAL</td>
+                  <td class="border p-2 text-right text-red-600">${formatter.format(totalExpenses)}</td>
+                  <td class="border p-2 text-center">100%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        
+        <!-- Análisis -->
+        <div class="bg-gray-50 p-4 rounded-lg">
+          <h4 class="text-lg font-semibold mb-3">📊 Análisis del Conjunto</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <h5 class="font-medium text-blue-800 mb-2">Información General</h5>
+              <ul class="list-disc list-inside space-y-1 text-gray-600">
+                <li>Casas en el conjunto: ${conjuntoHouses.length}</li>
+                <li>Período analizado: ${Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24))} días</li>
+                <li>Promedio de gasto por casa: ${formatter.format(conjuntoHouses.length > 0 ? totalExpenses / conjuntoHouses.length : 0)}</li>
+              </ul>
+            </div>
+            <div>
+              <h5 class="font-medium text-blue-800 mb-2">Estado Financiero</h5>
+              <ul class="list-disc list-inside space-y-1 text-gray-600">
+                <li>Estado del fondo: ${balance >= 0 ? 'Positivo' : 'Déficit'}</li>
+                <li>Relación ingresos/gastos: ${totalExpenses > 0 ? ((totalIncomes / totalExpenses) * 100).toFixed(1) : 0}%</li>
+                <li>${balance >= 0 ? 'Superávit' : 'Déficit'}: ${formatter.format(Math.abs(balance))}</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    return reportHTML;
+  }
+  // ==================== MEJORAR REPORTE CONSOLIDADO EXISTENTE ====================
+  // Reemplazar el generateConsolidatedReport existente
+  const generateConsolidatedReportBtn = document.getElementById('generateConsolidatedReport');
+  if (generateConsolidatedReportBtn) {
+    // Remover listener anterior si existe
+    generateConsolidatedReportBtn.replaceWith(generateConsolidatedReportBtn.cloneNode(true));
+    const newGenerateConsolidatedReportBtn = document.getElementById('generateConsolidatedReport');
+    
+    newGenerateConsolidatedReportBtn.addEventListener('click', () => {
+      const startDate = new Date(document.getElementById('consolidatedStartDate').value);
+      const endDate = new Date(document.getElementById('consolidatedEndDate').value);
+      
+      // Generar reporte específico del conjunto
+      const reportHTML = generateConjuntoResidencialReport(startDate, endDate);
+      
+      document.getElementById('reportContent').innerHTML = reportHTML;
+      document.getElementById('reportContent').scrollIntoView({ behavior: 'smooth' });
+    });
+  }
+  console.log('Funciones del dashboard y conjunto residencial configuradas correctamente');
 });
