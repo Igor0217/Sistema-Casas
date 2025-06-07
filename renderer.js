@@ -2068,94 +2068,97 @@ function initializeProfessionalFeatures() {
   }
   // ==================== FUNCIONES DE EXPORTACIÓN MEJORADAS ====================
   // Exportar a PDF profesional
-  document.getElementById('exportPdf').addEventListener('click', () => {
-    const reportContent = document.getElementById('reportContent');
-    if (reportContent.innerHTML.trim() === '') {
-      showNotification('Por favor, genere un reporte antes de exportar a PDF.', 'error');
-      return;
-    }
-    const doc = new jsPDF();
-    const title = reportContent.querySelector('h3');
-    const titleText = title ? title.textContent : 'Reporte';
-    
-    // Header profesional
-    doc.setFillColor(59, 130, 246); // Azul
-    doc.rect(0, 0, 220, 40, 'F');
-    
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(18);
-    doc.text('SISTEMA DE GESTIÓN DE CASAS', 20, 15);
-    
-    doc.setFontSize(14);
-    doc.text(titleText, 20, 25);
-    
-    doc.setFontSize(10);
-    doc.text(`Generado: ${new Date().toLocaleDateString('es-CO')} ${new Date().toLocaleTimeString('es-CO')}`, 20, 35);
-    
-    // Resetear color de texto
-    doc.setTextColor(0, 0, 0);
-    let yPos = 50;
-    
-    // Obtener datos del reporte visible
-    const tables = reportContent.querySelectorAll('table');
-    const summaryCards = reportContent.querySelectorAll('.bg-green-100, .bg-red-100, .bg-yellow-100, .bg-blue-50, .bg-pink-50');
-    
-    // Agregar resumen si existe
-    if (summaryCards.length > 0) {
-      doc.setFontSize(12);
-      doc.text('RESUMEN FINANCIERO', 20, yPos);
-      yPos += 10;
+  const exportPdfBtn = document.getElementById('exportPdf');
+  if (exportPdfBtn) {
+    exportPdfBtn.addEventListener('click', () => {
+      const reportContent = document.getElementById('reportContent');
+      if (reportContent.innerHTML.trim() === '') {
+        showNotification('Por favor, genere un reporte antes de exportar a PDF.', 'error');
+        return;
+      }
+      const doc = new jsPDF();
+      const title = reportContent.querySelector('h3');
+      const titleText = title ? title.textContent : 'Reporte';
       
-      summaryCards.forEach(card => {
-        const cardTitle = card.querySelector('h4');
-        const cardValue = card.querySelector('p');
-        if (cardTitle && cardValue) {
-          doc.setFontSize(10);
-          doc.text(`${cardTitle.textContent}: ${cardValue.textContent}`, 20, yPos);
-          yPos += 6;
+      // Header profesional
+      doc.setFillColor(59, 130, 246); // Azul
+      doc.rect(0, 0, 220, 40, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(18);
+      doc.text('SISTEMA DE GESTIÓN DE CASAS', 20, 15);
+      
+      doc.setFontSize(14);
+      doc.text(titleText, 20, 25);
+      
+      doc.setFontSize(10);
+      doc.text(`Generado: ${new Date().toLocaleDateString('es-CO')} ${new Date().toLocaleTimeString('es-CO')}`, 20, 35);
+      
+      // Resetear color de texto
+      doc.setTextColor(0, 0, 0);
+      let yPos = 50;
+      
+      // Obtener datos del reporte visible
+      const tables = reportContent.querySelectorAll('table');
+      const summaryCards = reportContent.querySelectorAll('.bg-green-100, .bg-red-100, .bg-yellow-100, .bg-blue-50, .bg-pink-50');
+      
+      // Agregar resumen si existe
+      if (summaryCards.length > 0) {
+        doc.setFontSize(12);
+        doc.text('RESUMEN FINANCIERO', 20, yPos);
+        yPos += 10;
+        
+        summaryCards.forEach(card => {
+          const cardTitle = card.querySelector('h4');
+          const cardValue = card.querySelector('p');
+          if (cardTitle && cardValue) {
+            doc.setFontSize(10);
+            doc.text(`${cardTitle.textContent}: ${cardValue.textContent}`, 20, yPos);
+            yPos += 6;
+          }
+        });
+        yPos += 10;
+      }
+      
+      // Agregar tablas
+      tables.forEach((table, index) => {
+        if (yPos > 250) {
+          doc.addPage();
+          yPos = 20;
+        }
+        
+        const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
+        const rows = Array.from(table.querySelectorAll('tbody tr')).map(tr => 
+          Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
+        );
+        
+        if (headers.length > 0 && rows.length > 0) {
+          doc.autoTable({
+            startY: yPos,
+            head: [headers],
+            body: rows,
+            theme: 'striped',
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontStyle: 'bold' }
+          });
+          
+          yPos = doc.lastAutoTable.finalY + 15;
         }
       });
-      yPos += 10;
-    }
-    
-    // Agregar tablas
-    tables.forEach((table, index) => {
-      if (yPos > 250) {
-        doc.addPage();
-        yPos = 20;
+      
+      // Footer
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(128, 128, 128);
+        doc.text(`Página ${i} de ${pageCount} - Sistema de Gestión de Casas`, 20, 290);
       }
       
-      const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
-      const rows = Array.from(table.querySelectorAll('tbody tr')).map(tr => 
-        Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
-      );
-      
-      if (headers.length > 0 && rows.length > 0) {
-        doc.autoTable({
-          startY: yPos,
-          head: [headers],
-          body: rows,
-          theme: 'striped',
-          styles: { fontSize: 8, cellPadding: 2 },
-          headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontStyle: 'bold' }
-        });
-        
-        yPos = doc.lastAutoTable.finalY + 15;
-      }
+      doc.save(`${titleText.toLowerCase().replace(/\s+/g, '-')}.pdf`);
+      showNotification('📄 PDF profesional exportado correctamente.', 'success');
     });
-    
-    // Footer
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(128, 128, 128);
-      doc.text(`Página ${i} de ${pageCount} - Sistema de Gestión de Casas`, 20, 290);
-    }
-    
-    doc.save(`${titleText.toLowerCase().replace(/\s+/g, '-')}.pdf`);
-    showNotification('📄 PDF profesional exportado correctamente.', 'success');
-  });
+  }
   // Exportar Excel profesional con todas las casas
   function exportAllHousesToExcel() {
     const wb = XLSX.utils.book_new();
@@ -2250,8 +2253,9 @@ function initializeProfessionalFeatures() {
     showNotification('📊 Excel profesional exportado correctamente.', 'success');
   }
   // Event listener para Excel completo
-  if (document.getElementById('exportAllHousesExcel')) {
-    document.getElementById('exportAllHousesExcel').addEventListener('click', exportAllHousesToExcel);
+  const exportAllHousesExcelBtn = document.getElementById('exportAllHousesExcel');
+  if (exportAllHousesExcelBtn) {
+    exportAllHousesExcelBtn.addEventListener('click', exportAllHousesToExcel);
   }
   // ==================== REPORTES AVANZADOS ====================
   // Funciones para reportes específicos
@@ -2369,8 +2373,9 @@ function initializeProfessionalFeatures() {
     `;
   }
   // Event listeners para reportes avanzados
-  if (document.getElementById('generateAdvancedReport')) {
-    document.getElementById('generateAdvancedReport').addEventListener('click', () => {
+  const generateAdvancedReportBtn = document.getElementById('generateAdvancedReport');
+  if (generateAdvancedReportBtn) {
+    generateAdvancedReportBtn.addEventListener('click', () => {
       const startDate = new Date(document.getElementById('consolidatedAdvancedStartDate').value);
       const endDate = new Date(document.getElementById('consolidatedAdvancedEndDate').value);
       const reportType = document.getElementById('consolidatedType').value;
@@ -2400,11 +2405,15 @@ function initializeProfessionalFeatures() {
   // Inicializar sincronización en tiempo real
   setupRealtimeSync();
   // Establecer fecha actual por defecto para reportes avanzados
-  const todayAdvanced = new Date().toISOString().split('T')[0];
-  if (document.getElementById('consolidatedAdvancedStartDate')) {
-    document.getElementById('consolidatedAdvancedStartDate').value = '2025-01-01';
-    document.getElementById('consolidatedAdvancedEndDate').value = todayAdvanced;
+  const today = new Date().toISOString().split('T')[0];
+  const consolidatedAdvancedStartDate = document.getElementById('consolidatedAdvancedStartDate');
+  const consolidatedAdvancedEndDate = document.getElementById('consolidatedAdvancedEndDate');
+  
+  if (consolidatedAdvancedStartDate) {
+    consolidatedAdvancedStartDate.value = '2025-01-01';
+  }
+  if (consolidatedAdvancedEndDate) {
+    consolidatedAdvancedEndDate.value = today;
   }
   // Cargar datos iniciales
-  console.log('Sistema iniciado correctamente con funciones de exportación');
-});
+  console.log('Sistema iniciado correctamente con funciones de exportación');});
