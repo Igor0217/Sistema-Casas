@@ -11,7 +11,7 @@
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>       
-    <script src="renderer.js" defer></script>
+    <script type="module" src="src/main.js" defer></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="icon" href="data:,">
     <style>
@@ -486,118 +486,111 @@
             </div>
         </section>
 
-        <!-- Reportes Section -->
-        <section id="reportes" class="hidden space-y-6 fade-in">
-            <h2 class="text-xl lg:text-2xl font-semibold flex items-center">
-                <span class="mr-2">📊</span>
-                Reportes
-            </h2>
-            
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Reporte por Casa -->
-                <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg">
-                    <h3 class="text-lg font-medium mb-4 flex items-center">
-                        <span class="mr-2">🏠</span>
-                        Reporte por Casa
-                    </h3>
-                    <div class="space-y-4">
-                        <div>
-                            <label for="reportHouse" class="block text-sm font-medium mb-2">Seleccionar Casa</label>
-                            <select id="reportHouse" class="w-full p-3 border rounded-lg text-sm lg:text-base">
-                                <option value="">Seleccione una casa</option>
-                            </select>
-                        </div>
-                        <button id="generateHouseReport" class="w-full bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
-                            Generar Reporte
-                        </button>
-                    </div>
+       <!-- Reportes Section -->
+<section id="reportes" class="hidden space-y-6 fade-in">
+    <h2 class="text-xl lg:text-2xl font-semibold flex items-center">
+        <span class="mr-2">📊</span>
+        Reportes
+    </h2>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Reporte por Casa -->
+        <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg">
+            <h3 class="text-lg font-medium mb-4 flex items-center">
+                <span class="mr-2">🏠</span>
+                Reporte por Casa
+            </h3>
+            <div class="space-y-4">
+                <div>
+                    <label for="reportHouse" class="block text-sm font-medium mb-2">Seleccionar Casa</label>
+                    <select id="reportHouse" class="w-full p-3 border rounded-lg text-sm lg:text-base">
+                        <option value="">Seleccione una casa</option>
+                    </select>
                 </div>
-
-                <!-- Reporte Consolidado Avanzado -->
-<div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg">
-    <h3 class="text-lg font-medium mb-4 flex items-center">
-        <span class="mr-2">🎯</span>
-        Reporte Consolidado Avanzado
-    </h3>
-    <div class="space-y-4">
-        <div>
-            <label class="block text-sm font-medium mb-2">Período</label>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input id="consolidatedAdvancedStartDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-01-01">
-                <input id="consolidatedAdvancedEndDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-06-02">
+                <button id="generateHouseReport" class="w-full bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
+                    Generar Reporte
+                </button>
             </div>
         </div>
-        <div>
-            <label class="block text-sm font-medium mb-2">Tipo de Reporte</label>
-            <select id="consolidatedType" class="w-full p-3 border rounded-lg text-sm lg:text-base">
-                <option value="general">General (Conjunto + Independientes)</option>
-                <option value="conjunto">Solo Conjunto Residencial</option>
-                <option value="independientes">Solo Casas Independientes</option>
-                <option value="por_casa">Detallado por Cada Casa</option>
-            </select>
+
+        <!-- Reporte Consolidado Avanzado -->
+        <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg">
+            <h3 class="text-lg font-medium mb-4 flex items-center">
+                <span class="mr-2">🎯</span>
+                Reporte Consolidado Avanzado
+            </h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Período</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input id="consolidatedAdvancedStartDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-01-01">
+                        <input id="consolidatedAdvancedEndDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-06-02">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Tipo de Reporte</label>
+                    <select id="consolidatedType" class="w-full p-3 border rounded-lg text-sm lg:text-base">
+                        <option value="general">General (Conjunto + Independientes)</option>
+                        <option value="conjunto">Solo Conjunto Residencial</option>
+                        <option value="independientes">Solo Casas Independientes</option>
+                        <option value="por_casa">Detallado por Cada Casa</option>
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <button id="generateAdvancedReport" class="flex-1 bg-purple-500 hover:bg-purple-600 text-white p-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
+                        🎯 Generar Reporte Avanzado
+                    </button>
+                    
+                </div>
+            </div>
         </div>
-        <div class="flex gap-2">
-            <button id="generateAdvancedReport" class="flex-1 bg-purple-500 hover:bg-purple-600 text-white p-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
-                🎯 Generar Reporte Avanzado
+
+        <!-- Reporte de Ingresos Mejorado -->
+        <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg lg:col-span-2">
+            <h3 class="text-lg font-medium mb-4 flex items-center">
+                <span class="mr-2">💰</span>
+                Reporte de Ingresos
+            </h3>
+            <div class="space-y-4">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Período</label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <input id="incomeStartDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-01-01">
+                            <input id="incomeEndDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-06-02">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="incomeReportType" class="block text-sm font-medium mb-2">Tipo de Ingresos</label>
+                        <select id="incomeReportType" class="w-full p-3 border rounded-lg text-sm lg:text-base">
+                            <option value="all">Todos los ingresos</option>
+                            <option value="conjunto">Solo Conjunto Residencial</option>
+                            <option value="independientes">Solo Casas Independientes</option>
+                        </select>
+                    </div>
+                </div>
+                <button id="generateIncomeReport" class="w-full lg:w-auto bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
+                    Generar Reporte de Ingresos
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenido del Reporte -->
+    <div id="reportContent" class="bg-white p-4 lg:p-6 rounded-xl shadow-lg"></div>
+    
+    <!-- Botones de exportación -->
+    <div id="exportButtons" class="hidden">
+        <div class="flex justify-center gap-4 flex-wrap">
+            <button id="exportPdf" class="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
+                📄 Exportar a PDF
             </button>
-            <button id="exportAllHousesExcel" class="bg-green-500 hover:bg-green-600 text-white p-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
-                📊 Excel Completo
+            <button id="exportConsolidatedExcel" class="hidden bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
+                📊 Exportar a Excel
             </button>
         </div>
     </div>
-</div>
-
-                <!-- Reporte de Ingresos -->
-                <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg">
-                    <h3 class="text-lg font-medium mb-4 flex items-center">
-                        <span class="mr-2">💰</span>
-                        Reporte de Ingresos
-                    </h3>
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium mb-2">Período</label>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <input id="incomeStartDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-01-01">
-                                <input id="incomeEndDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-06-02">
-                            </div>
-                        </div>
-                        <button id="generateIncomeReport" class="w-full bg-green-500 hover:bg-green-600 text-white p-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
-                            Generar Reporte
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Reporte Comparativo -->
-                <div class="bg-white p-4 lg:p-6 rounded-xl shadow-lg">
-                    <h3 class="text-lg font-medium mb-4 flex items-center">
-                        <span class="mr-2">⚖️</span>
-                        Comparativo Conjunto vs Independientes
-                    </h3>
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium mb-2">Período</label>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <input id="comparativeStartDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-01-01">
-                                <input id="comparativeEndDate" type="date" class="p-3 border rounded-lg text-sm lg:text-base" value="2025-06-02">
-                            </div>
-                        </div>
-                        <button id="generateComparativeReport" class="w-full bg-orange-500 hover:bg-orange-600 text-white p-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
-                            Generar Reporte
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Contenido del Reporte -->
-            <div id="reportContent" class="bg-white p-4 lg:p-6 rounded-xl shadow-lg"></div>
-            
-            <!-- Botón de exportación -->
-            <div class="flex justify-center">
-                <button id="exportPdf" class="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg text-sm lg:text-base transition-colors duration-200">
-                    📄 Exportar a PDF
-                </button>
-            </div>
-        </section>
+</section>
     </main>
 
     <!-- Modal de Edición -->
