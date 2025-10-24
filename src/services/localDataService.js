@@ -25,7 +25,7 @@ export function migrateOldData(data) {
 
   // Asegurar que cada ingreso tenga la propiedad `house` (null = conjunto)
   const newIncomes = data.incomes.map(i =>
-    i.hasOwnProperty('house') ? i : { ...i, house: null }
+    Object.prototype.hasOwnProperty.call(i, 'house') ? i : { ...i, house: null }
   );
 
   return {
