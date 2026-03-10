@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Finanzas de Alexander y Nuri</title>
+  <style>
+    :root{
+      --bg-1:#161230;--bg-2:#25103b;--panel:#f6f4fb;--panel-2:#ffffff;--line:#e8e0f3;--text:#171423;--muted:#6e6881;
+      --primary:#9b4dff;--primary-2:#7c3aed;--success:#1fa971;--danger:#e2556b;--warning:#f2a83b;--shadow:0 18px 35px rgba(14,10,40,.18);--radius:22px;
+    }
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--text);
+      background:radial-gradient(circle at top left, rgba(155,77,255,.25), transparent 28%),linear-gradient(135deg,var(--bg-1),var(--bg-2));min-height:100vh}
+    .app{max-width:1280px;margin:0 auto;padding:16px}
+    .hero{background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.06));color:#fff;border:1px solid rgba(255,255,255,.14);
+      border-radius:24px;padding:24px 26px;box-shadow:var(--shadow);backdrop-filter: blur(8px);display:grid;grid-template-columns:1.7fr 1fr;gap:20px;align-items:center}
+    .hero .pill{display:inline-block;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);font-size:12px;margin-bottom:10px}
+    .hero h1{font-size:clamp(30px,5vw,48px);line-height:1.02;margin:0 0 10px;font-weight:900;letter-spacing:-.02em}
+    .hero p{margin:0;color:#e8e0ff;max-width:760px}
+    .hero-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;align-items:flex-start}
+    .btn{border:0;padding:12px 16px;border-radius:14px;font-weight:700;cursor:pointer;transition:.18s transform,.18s opacity,.18s box-shadow}
+    .btn:hover{transform:translateY(-1px)} .btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;box-shadow:0 8px 18px rgba(124,58,237,.28)}
+    .btn-soft{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.15)} .btn-light{background:#fff;color:var(--primary-2)}
+    .btn-success{background:linear-gradient(135deg,#27c084,#1fa971);color:#fff} .btn-outline{background:#fff;border:1px solid var(--line);color:#453a59}
+    .toolbar{margin-top:14px;background:rgba(255,255,255,.92);border-radius:18px;padding:10px;display:flex;gap:8px;flex-wrap:wrap;box-shadow:var(--shadow);position:sticky;top:10px;z-index:3}
+    .tab{border:0;background:transparent;padding:11px 14px;border-radius:12px;font-weight:700;color:#544b69;cursor:pointer} .tab.active{background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff}
+    .grid{margin-top:14px;display:grid;grid-template-columns:2fr 1fr;gap:14px} .panel{background:rgba(250,248,255,.98);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;border:1px solid rgba(255,255,255,.7)}
+    .panel h2,.panel h3{margin:0} .muted{color:var(--muted)}
+    .top-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}
+    .metric{background:var(--panel-2);border:1px solid var(--line);border-radius:18px;padding:16px;min-height:102px;position:relative;overflow:hidden}
+    .metric::after{content:"";position:absolute;right:-24px;top:-24px;width:72px;height:72px;border-radius:50%;opacity:.12;background:var(--accent,#9b4dff)}
+    .metric .label{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+    .metric .value{font-size:32px;font-weight:900;margin-top:8px}.metric .sub{font-size:13px;color:var(--muted);margin-top:4px}
+    .balance{--accent:#7c3aed;background:linear-gradient(135deg,#ffffff,#f5f0ff)} .income{--accent:#1fa971}.expense{--accent:#e2556b}.debt{--accent:#f2a83b}
+    .identities{display:flex;gap:10px;align-items:center;justify-content:flex-end}.badge-person{text-align:center;min-width:70px}
+    .circle{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:900;margin:0 auto 6px;background:#fff;border:2px solid var(--primary);color:var(--primary)}
+    .section-title{display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .cards-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}.mini-card{background:var(--panel-2);border:1px solid var(--line);border-radius:18px;padding:16px}
+    .tag{display:inline-block;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:800}.tag.personal{background:#eef2ff;color:#4f46e5}.tag.shared{background:#eafaf2;color:#198754}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.form-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    label{display:block;font-size:12px;font-weight:800;color:#5f5872;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+    input, select{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#fff;font:inherit;color:var(--text)}
+    .stack{display:flex;gap:10px;flex-wrap:wrap}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .progress{width:100%;height:12px;background:#ece6f8;border-radius:999px;overflow:hidden}.progress>div{height:100%;background:linear-gradient(135deg,var(--primary),var(--primary-2));border-radius:999px}
+    .list{display:grid;gap:10px;margin-top:10px}.list-item{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;justify-content:space-between;gap:14px;align-items:center}
+    .list-item strong{display:block}.kpi-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+    table{width:100%;border-collapse:separate;border-spacing:0 8px;margin-top:8px} th{font-size:12px;text-transform:uppercase;color:#6a617d;text-align:left;padding:0 10px}
+    td{background:#fff;padding:12px 10px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)} td:first-child{border-left:1px solid var(--line);border-top-left-radius:14px;border-bottom-left-radius:14px}
+    td:last-child{border-right:1px solid var(--line);border-top-right-radius:14px;border-bottom-right-radius:14px}.table-wrap{overflow:auto}.money.positive{color:var(--success);font-weight:800}.money.negative{color:var(--danger);font-weight:800}
+    .bar-chart{display:grid;gap:10px;margin-top:12px}.bar{display:grid;grid-template-columns:140px 1fr 80px;gap:10px;align-items:center}.bar-track{height:16px;background:#ece6f8;border-radius:999px;overflow:hidden}.bar-fill{height:100%;background:linear-gradient(135deg,#a855f7,#7c3aed);border-radius:999px}
+    .empty{border:1px dashed #d7ccec;border-radius:18px;padding:18px;color:#6d6580;background:rgba(255,255,255,.55)} .footer-note{font-size:12px;color:#ddd4f1;margin-top:12px;text-align:center}.hidden{display:none!important}.right{text-align:right}
+    @media (max-width:960px){.hero{grid-template-columns:1fr}.hero-actions{justify-content:flex-start}.grid,.row{grid-template-columns:1fr}.cards-3,.top-cards,.form-grid,.form-grid-3{grid-template-columns:1fr}.identities{justify-content:flex-start}.bar{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="app">
+<section class="hero">
+  <div>
+    <span class="pill">Versión premium para el hogar</span>
+    <h1>Bienvenidos, Alexander y Nuri</h1>
+    <p>Una app más bonita para llevar ingresos, gastos, deudas, metas y presupuesto familiar con estilo y orden.</p>
+    <p id="lastSaved" style="margin-top:10px;font-size:12px;color:#e8e0ff;">Sin cambios guardados todavía.</p>
+  </div>
+  <div class="hero-actions">
+    <button class="btn btn-soft" id="btnBackup">Backup</button>
+    <button class="btn btn-soft" id="btnImport">Importar</button>
+    <button class="btn btn-soft" id="btnExcel">Excel</button>
+    <button class="btn btn-light" id="btnReset">Reiniciar</button>
+    <input id="fileImport" type="file" accept=".json" class="hidden" />
+  </div>
+</section>
+
+<nav class="toolbar">
+  <button class="tab active" data-tab="dashboard">Dashboard</button>
+  <button class="tab" data-tab="movimiento">Registrar</button>
+  <button class="tab" data-tab="planificacion">Planificación</button>
+  <button class="tab" data-tab="movimientos">Movimientos</button>
+  <button class="tab" data-tab="reportes">Reportes</button>
+</nav>
+
+<section id="tab-dashboard" class="tab-content">
+  <div class="grid">
+    <div class="panel">
+      <div class="section-title">
+        <div><div class="muted" style="font-size:12px;font-weight:800;text-transform:uppercase">Panel principal</div><h2>Finanzas del hogar en un vistazo</h2><div class="muted">Controlen juntos el dinero de Alexander, Nuri y el Hogar.</div></div>
+        <div class="identities">
+          <div class="badge-person"><div class="circle">A</div><small>Alexander</small></div>
+          <div class="badge-person"><div class="circle">N</div><small>Nuri</small></div>
+          <div class="badge-person"><div class="circle">H</div><small>Hogar</small></div>
+        </div>
+      </div>
+      <div class="top-cards">
+        <div class="metric balance"><div class="label">Balance general</div><div class="value" id="metricBalance">$ 0</div><div class="sub">Lo disponible entre todos</div></div>
+        <div class="metric income"><div class="label">Ingresos</div><div class="value" id="metricIncome">$ 0</div><div class="sub">Entradas totales</div></div>
+        <div class="metric expense"><div class="label">Gastos</div><div class="value" id="metricExpense">$ 0</div><div class="sub">Salidas acumuladas</div></div>
+        <div class="metric debt"><div class="label">Deudas</div><div class="value" id="metricDebt">$ 0</div><div class="sub">Cuotas pendientes</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="section-title"><div><div class="muted" style="font-size:12px;font-weight:800;text-transform:uppercase">Metas</div><h3>Ahorro mensual</h3></div><span class="tag personal">v3.1</span></div>
+      <div style="margin-top:14px"><label>Meta de ahorro mensual</label><input id="goalMonthly" type="number" placeholder="Ej. 1500000" /></div>
+      <div style="margin-top:12px"><label>Meta de ahorro acumulado</label><input id="goalTotal" type="number" placeholder="Ej. 10000000" /></div>
+      <div class="actions"><button class="btn btn-primary" id="btnSaveGoals">Guardar metas</button></div>
+      <div style="margin-top:16px"><div class="section-title"><strong>Meta del mes</strong><span id="goalMonthPct">0%</span></div><div class="progress"><div id="goalMonthBar" style="width:0%"></div></div><div class="muted" id="goalMonthText" style="margin-top:6px">Sin meta definida</div></div>
+      <div style="margin-top:16px"><div class="section-title"><strong>Ahorro acumulado</strong><span id="goalTotalPct">0%</span></div><div class="progress"><div id="goalTotalBar" style="width:0%"></div></div><div class="muted" id="goalTotalText" style="margin-top:6px">Sin meta definida</div></div>
+    </div>
+  </div>
+
+  <div class="cards-3">
+    <div class="mini-card"><div class="section-title"><h3>Alexander</h3><span class="tag personal">Personal</span></div><div class="kpi-row"><div><div class="muted">Ingresos</div><strong id="sumAlexanderIncome">$ 0</strong></div><div><div class="muted">Gastos</div><strong id="sumAlexanderExpense">$ 0</strong></div><div><div class="muted">Deudas</div><strong id="sumAlexanderDebt">$ 0</strong></div><div><div class="muted">Balance</div><strong id="sumAlexanderBalance">$ 0</strong></div></div></div>
+    <div class="mini-card"><div class="section-title"><h3>Nuri</h3><span class="tag personal">Personal</span></div><div class="kpi-row"><div><div class="muted">Ingresos</div><strong id="sumNuriIncome">$ 0</strong></div><div><div class="muted">Gastos</div><strong id="sumNuriExpense">$ 0</strong></div><div><div class="muted">Deudas</div><strong id="sumNuriDebt">$ 0</strong></div><div><div class="muted">Balance</div><strong id="sumNuriBalance">$ 0</strong></div></div></div>
+    <div class="mini-card"><div class="section-title"><h3>Hogar</h3><span class="tag shared">Compartido</span></div><div class="kpi-row"><div><div class="muted">Ingresos</div><strong id="sumHogarIncome">$ 0</strong></div><div><div class="muted">Gastos</div><strong id="sumHogarExpense">$ 0</strong></div><div><div class="muted">Deudas</div><strong id="sumHogarDebt">$ 0</strong></div><div><div class="muted">Balance</div><strong id="sumHogarBalance">$ 0</strong></div></div></div>
+  </div>
+
+  <div class="row" style="margin-top:14px">
+    <div class="panel">
+      <div class="section-title"><div><div class="muted" style="font-size:12px;font-weight:800;text-transform:uppercase">Mes actual</div><h3>Cierre mensual bonito</h3></div></div>
+      <div class="top-cards" style="grid-template-columns:repeat(3,1fr)">
+        <div class="metric income"><div class="label">Ingresos del mes</div><div class="value" id="monthIncome">$ 0</div></div>
+        <div class="metric expense"><div class="label">Gastos del mes</div><div class="value" id="monthExpense">$ 0</div></div>
+        <div class="metric balance"><div class="label">Balance del mes</div><div class="value" id="monthBalance">$ 0</div></div>
+      </div>
+      <div class="cards-3" style="margin-top:14px">
+        <div class="mini-card"><div class="muted">Resumen ejecutivo</div><div id="monthSummary" style="margin-top:10px;font-weight:600">Todavía no hay suficientes movimientos para el cierre mensual.</div></div>
+        <div class="mini-card"><div class="muted">Dato clave del mes</div><div id="monthInsight" style="margin-top:10px;font-weight:600">Empiecen registrando movimientos para ver recomendaciones.</div></div>
+        <div class="mini-card"><div class="muted">Presupuesto y metas</div><div id="monthBudgetInfo" style="margin-top:10px;font-weight:600">Aún no hay datos para comparar.</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="section-title"><div><div class="muted" style="font-size:12px;font-weight:800;text-transform:uppercase">Últimos movimientos</div><h3>Actividad reciente</h3></div></div>
+      <div id="recentList" class="list"></div>
+    </div>
+  </div>
+</section>
+
+<section id="tab-movimiento" class="tab-content hidden">
+  <div class="panel">
+    <div class="section-title"><div><div class="muted" style="font-size:12px;font-weight:800;text-transform:uppercase">Registro</div><h3>Nuevo movimiento</h3></div></div>
+    <div class="form-grid-3" style="margin-top:14px">
+      <div><label>Tipo</label><select id="txType"><option value="ingreso">Ingreso</option><option value="gasto">Gasto</option><option value="deuda">Deuda / cuota</option></select></div>
+      <div><label>Responsable</label><select id="txOwner"><option value="Alexander">Alexander</option><option value="Nuri">Nuri</option><option value="Hogar">Hogar</option></select></div>
+      <div><label>Fecha</label><input id="txDate" type="date" /></div>
+      <div><label>Categoría</label><select id="txCategory"></select></div>
+      <div><label>Valor</label><input id="txAmount" type="number" min="0" placeholder="0" /></div>
+      <div><label>Método</label><select id="txMethod"><option>Efectivo</option><option>Nequi</option><option>Banco</option><option>Tarjeta</option><option>Transferencia</option></select></div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <div><label>Descripción</label><input id="txDescription" type="text" placeholder="Ej. Mercado quincenal" /></div>
+      <div><label>Observación</label><input id="txNote" type="text" placeholder="Notas opcionales" /></div>
+    </div>
+    <div class="form-grid" style="margin-top:12px">
+      <div><label>¿Es gasto compartido 50/50?</label><select id="txSplit"><option value="no">No</option><option value="si">Sí, dividir entre Alexander y Nuri</option></select></div>
+      <div><label>Estado de deuda</label><select id="txDebtStatus"><option value="pendiente">Pendiente</option><option value="pagada">Pagada</option></select></div>
+    </div>
+    <div class="actions"><button class="btn btn-success" id="btnSaveTx">Guardar movimiento</button><button class="btn btn-outline" id="btnClearTx">Limpiar</button></div>
+  </div>
+</section>
+
+<section id="tab-planificacion" class="tab-content hidden">
+  <div class="row">
+    <div class="panel">
+      <div class="section-title"><div><div class="muted" style="font-size:12px;font-weight:800;text-transform:uppercase">Presupuesto</div><h3>Presupuesto por categoría</h3></div></div>
+      <div class="form-grid" style="margin-top:14px">
+        <div><label>Categoría</label><select id="budgetCategory"></select></div>
+        <div><label>Monto mensual</label><input id="budgetAmount" type="number" min="0" placeholder="0" /></div>
+      </div>
+      <div class="actions"><button class="btn btn-primary" id="btnSaveBudget">Guardar presupuesto</button></div>
+      <div id="budgetList" class="list" style="margin-top:12px"></div>
+    </div>
+    <div class="panel">
+      <div class="section-title"><div><div class="muted" style="font-size:12px;font-weight:800;text-transform:uppercase">Gráfico</div><h3>¿En qué gastan más?</h3></div></div>
+      <div id="chartArea" class="bar-chart"></div>
+    </div>
+  </div>
+</section>
+
+<section id="tab-movimientos" class="tab-content hidden">
+  <div class="panel">
+    <div class="section-title">
+      <div><div class="muted" style="font-size:12px;font-weight:800;text-transform:uppercase">Historial</div><h3>Todos los movimientos</h3></div>
+      <div class="stack"><select id="filterOwner"><option value="Todos">Todos</option><option>Alexander</option><option>Nuri</option><option>Hogar</option></select><select id="filterType"><option value="Todos">Todos</option><option value="ingreso">Ingreso</option><option value="gasto">Gasto</option><option value="deuda">Deuda / cuota</option></select></div>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Responsable</th><th>Categoría</th><th>Descripción</th><th class="right">Valor</th><th>Acciones</th></tr></thead><tbody id="txTable"></tbody></table></div>
+  </div>
+</section>
+
+<section id="tab-reportes" class="tab-content hidden">
+  <div class="row">
+    <div class="panel"><div class="section-title"><div><div class="muted" style="font-size:12px;font-weight:800;text-transform:uppercase">Reporte</div><h3>Resumen por cuenta</h3></div></div><div id="reportAccounts" class="cards-3"></div></div>
+    <div class="panel"><div class="section-title"><div><div class="muted" style="font-size:12px;font-weight:800;text-transform:uppercase">Reporte</div><h3>Alertas del presupuesto</h3></div></div><div id="budgetAlerts" class="list"></div></div>
+  </div>
+</section>
+
+<div class="footer-note">Hecho con cariño para Alexander, Nuri y el Hogar.</div>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
