@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nuestro control del hogar</title>
+  <style>
+    :root{
+      --bg1:#17122f; --bg2:#2b1343; --panel:#fbf9ff; --card:#ffffff; --line:#ece4f7;
+      --text:#181425; --muted:#685f7c; --primary:#8e52ff; --primary2:#7041dc;
+      --success:#1e9c68; --danger:#e35b6d; --warning:#efab3f; --shadow:0 18px 34px rgba(18,12,45,.16);
+      --radius:22px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; color:var(--text);
+      font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+      background:radial-gradient(circle at top left, rgba(142,82,255,.22), transparent 26%), linear-gradient(135deg,var(--bg1),var(--bg2));
+      min-height:100vh;
+    }
+    .hidden{display:none!important}
+    .app{max-width:1260px; margin:0 auto; padding:18px}
+    .login-wrap{min-height:100vh; display:grid; place-items:center; padding:20px}
+    .login-card{
+      width:min(460px,100%); background:rgba(255,255,255,.96); border-radius:28px; box-shadow:var(--shadow);
+      padding:28px; border:1px solid rgba(255,255,255,.75)
+    }
+    .login-title{font-size:34px; font-weight:900; margin:0 0 8px}
+    .login-sub{font-size:16px; color:var(--muted); line-height:1.55; margin:0 0 18px}
+    .hero{
+      background:linear-gradient(135deg,rgba(255,255,255,.13),rgba(255,255,255,.07));
+      color:#fff; border:1px solid rgba(255,255,255,.15); border-radius:26px; padding:24px 26px;
+      display:grid; grid-template-columns:1.7fr 1fr; gap:18px; align-items:center; box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .pill{
+      display:inline-block; padding:6px 12px; border-radius:999px; font-size:12px; font-weight:800;
+      background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.18); margin-bottom:10px
+    }
+    .hero h1{margin:0 0 8px; font-size:clamp(32px,5vw,50px); line-height:1.02; font-weight:900; letter-spacing:-.03em}
+    .hero p{margin:0; color:#efe9ff; max-width:760px; line-height:1.6; font-size:16px}
+    .hero-note{
+      margin-top:14px; background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.12);
+      padding:14px 16px; border-radius:18px; color:#f3eeff; line-height:1.55
+    }
+    .hero-actions{display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; align-items:flex-start}
+    .toolbar{
+      margin-top:16px; background:rgba(255,255,255,.96); border-radius:18px; padding:10px; display:flex; gap:8px; flex-wrap:wrap;
+      box-shadow:var(--shadow); position:sticky; top:10px; z-index:4;
+    }
+    .tab{border:0; background:transparent; padding:11px 14px; border-radius:12px; font-size:14px; font-weight:800; color:#594f6e; cursor:pointer}
+    .tab.active{background:linear-gradient(135deg,var(--primary),var(--primary2)); color:#fff}
+    .btn{border:0; padding:12px 16px; border-radius:14px; font-weight:800; font-size:14px; cursor:pointer; transition:.18s transform}
+    .btn:hover{transform:translateY(-1px)}
+    .btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary2)); color:#fff}
+    .btn-soft{background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.14)}
+    .btn-light{background:#fff; color:var(--primary2)}
+    .btn-success{background:linear-gradient(135deg,#28b97f,#1e9c68); color:#fff}
+    .btn-outline{background:#fff; color:#433a57; border:1px solid var(--line)}
+    .btn-danger{background:linear-gradient(135deg,#f56d7a,#e35b6d); color:#fff}
+    .grid{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px}
+    .panel{
+      background:rgba(251,249,255,.98); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow);
+      border:1px solid rgba(255,255,255,.8)
+    }
+    .section-kicker{font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:.06em; color:#6b6280}
+    .section-title{display:flex; justify-content:space-between; gap:10px; align-items:center}
+    .panel h2,.panel h3{margin:0}
+    .panel h2{font-size:32px}
+    .panel h3{font-size:24px}
+    .muted{color:var(--muted)}
+    .top-cards{display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:16px}
+    .metric{
+      background:var(--card); border:1px solid var(--line); border-radius:20px; padding:20px; min-height:124px; position:relative; overflow:hidden
+    }
+    .metric::after{content:""; position:absolute; right:-26px; top:-26px; width:78px; height:78px; border-radius:50%; background:var(--accent,#8e52ff); opacity:.12}
+    .metric-head{display:flex; align-items:center; gap:10px}
+    .metric-icon{
+      width:36px; height:36px; border-radius:12px; display:grid; place-items:center; font-size:18px; background:rgba(112,65,220,.08)
+    }
+    .metric .label{font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:.05em; color:#6d647f}
+    .metric .value{font-size:34px; font-weight:900; margin-top:10px}
+    .metric .sub{font-size:15px; color:#6d647f; margin-top:5px}
+    .balance{--accent:#7041dc; background:linear-gradient(135deg,#fff,#f6f1ff)}
+    .income{--accent:#1e9c68}
+    .expense{--accent:#e35b6d}
+    .flow{--accent:#efab3f}
+    .row{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px}
+    .cards-3{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:16px}
+    .mini-card{background:#fff; border:1px solid var(--line); border-radius:20px; padding:18px}
+    .tag{display:inline-block; padding:5px 10px; border-radius:999px; font-size:11px; font-weight:900}
+    .tag.personal{background:#eef2ff; color:#4f46e5}
+    .tag.shared{background:#eafaf2; color:#198754}
+    .tag.warn{background:#fff7e7; color:#a56500}
+    .tag.alert{background:#fff1f4; color:#d63259}
+    .kpi-row{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px}
+    .kpi-row .muted{font-size:14px}
+    .kpi-row strong{font-size:18px}
+    label{display:block; margin-bottom:7px; font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:.05em; color:#5d5672}
+    input, select{
+      width:100%; padding:13px 14px; border-radius:15px; border:1px solid var(--line); background:#fff; font:inherit; color:var(--text)
+    }
+    .form-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:14px}
+    .form-grid-3{display:grid; grid-template-columns:repeat(3,1fr); gap:14px}
+    .actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:16px}
+    .progress-wrap{margin-top:14px}
+    .progress-head{display:flex; justify-content:space-between; gap:10px; margin-bottom:8px}
+    .progress{width:100%; height:14px; background:#ece6f8; border-radius:999px; overflow:hidden}
+    .progress>div{height:100%; background:linear-gradient(135deg,var(--primary),var(--primary2)); border-radius:999px}
+    .progress.good>div{background:linear-gradient(135deg,#28b97f,#1e9c68)}
+    .progress.warn>div{background:linear-gradient(135deg,#f7bc56,#efab3f)}
+    .progress.danger>div{background:linear-gradient(135deg,#f56d7a,#e35b6d)}
+    .list{display:grid; gap:12px; margin-top:12px}
+    .list-item{
+      background:#fff; border:1px solid var(--line); border-radius:18px; padding:15px; display:flex; justify-content:space-between; gap:14px; align-items:center
+    }
+    .list-item strong{font-size:16px}
+    .list-item .muted{font-size:14px; line-height:1.5}
+    .bar-chart{display:grid; gap:12px; margin-top:14px}
+    .bar{display:grid; grid-template-columns:150px 1fr 100px; gap:12px; align-items:center}
+    .bar-track{height:16px; background:#ece6f8; border-radius:999px; overflow:hidden}
+    .bar-fill{height:100%; background:linear-gradient(135deg,#a855f7,#7041dc); border-radius:999px}
+    .empty{border:1px dashed #d8cceb; border-radius:18px; padding:18px; color:#6b6580; background:rgba(255,255,255,.55); line-height:1.55}
+    .table-wrap{overflow:auto}
+    table{width:100%; border-collapse:separate; border-spacing:0 10px; margin-top:10px}
+    th{font-size:12px; color:#6a607f; text-transform:uppercase; text-align:left; padding:0 12px}
+    td{background:#fff; padding:13px 12px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); vertical-align:middle; font-size:14px}
+    td:first-child{border-left:1px solid var(--line); border-top-left-radius:14px; border-bottom-left-radius:14px}
+    td:last-child{border-right:1px solid var(--line); border-top-right-radius:14px; border-bottom-right-radius:14px}
+    .right{text-align:right}
+    .money.positive{color:var(--success); font-weight:900}
+    .money.negative{color:var(--danger); font-weight:900}
+    .footer-note{font-size:12px; color:#ddd4f1; text-align:center; margin-top:14px}
+    .stack{display:flex; gap:8px; flex-wrap:wrap}
+    .icon-btn{padding:9px 11px}
+    @media (max-width:980px){
+      .hero,.grid,.row,.cards-3,.form-grid,.form-grid-3,.top-cards{grid-template-columns:1fr}
+      .hero-actions{justify-content:flex-start}
+      .panel h2{font-size:28px}
+      .panel h3{font-size:22px}
+      .metric .value{font-size:30px}
+      .bar{grid-template-columns:1fr}
+      body{font-size:16px}
+      .muted,.metric .sub,.list-item .muted{font-size:15px}
+    }
+  </style>
+</head>
+<body>
+  <section id="loginScreen" class="login-wrap">
+    <div class="login-card">
+      <div class="pill" style="color:#5b2fd6;background:#f2ebff;border-color:#e4d8ff">Acceso privado</div>
+      <h1 class="login-title">Nuestro control del hogar</h1>
+      <p class="login-sub">Una vista más limpia, inspirada en flujo de caja familiar. Solo entran Alexander y Nuri.</p>
+      <div>
+        <label>Usuario</label>
+        <input id="loginUser" placeholder="Alexander o Nuri" />
+      </div>
+      <div style="margin-top:12px">
+        <label>Clave</label>
+        <input id="loginPass" type="password" placeholder="Escribe la clave" />
+      </div>
+      <div class="actions"><button class="btn btn-primary" id="btnLogin">Entrar</button></div>
+      <div id="loginMsg" class="muted" style="margin-top:12px">Clave inicial sugerida: hogar2026</div>
+    </div>
+  </section>
+
+  <div id="appScreen" class="app hidden">
+    <section class="hero">
+      <div>
+        <span class="pill">Versión flujo de caja</span>
+        <h1>Bienvenidos, Alexander y Nuri</h1>
+        <p>Nuestro control del hogar: ingresos, gastos y saldo del mes en una portada más tranquila, con el detalle organizado en sus propias secciones.</p>
+        <div class="hero-note">La idea es que al entrar vean solo lo esencial. El resto queda ordenado en Ingresos, Gastos, Planificación, Movimientos y Reportes.</div>
+        <p id="lastSaved" style="margin-top:12px;font-size:13px;color:#efe9ff;">Sin cambios guardados todavía.</p>
+      </div>
+      <div class="hero-actions">
+        <button class="btn btn-soft" id="btnBackup">Backup</button>
+        <button class="btn btn-soft" id="btnImport">Importar</button>
+        <button class="btn btn-soft" id="btnExcel">Excel</button>
+        <button class="btn btn-soft" id="btnLogout">Salir</button>
+        <button class="btn btn-light" id="btnReset">Reiniciar</button>
+        <input id="fileImport" type="file" accept=".json" class="hidden" />
+      </div>
+    </section>
+
+    <nav class="toolbar">
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="ingresos">Ingresos</button>
+      <button class="tab" data-tab="gastos">Gastos</button>
+      <button class="tab" data-tab="planificacion">Planificación</button>
+      <button class="tab" data-tab="movimientos">Movimientos</button>
+      <button class="tab" data-tab="reportes">Reportes</button>
+    </nav>
+
+    <section id="tab-dashboard" class="tab-content">
+      <div class="panel">
+        <div class="section-title">
+          <div>
+            <div class="section-kicker">Resumen del mes</div>
+            <h2>Flujo de caja familiar</h2>
+            <div class="muted">Una vista limpia del dinero que entra, sale y queda.</div>
+          </div>
+          <span class="tag shared">Más aire visual</span>
+        </div>
+        <div class="top-cards">
+          <div class="metric balance">
+            <div class="metric-head"><div class="metric-icon">💎</div><div class="label">Balance general</div></div>
+            <div class="value" id="metricBalance">$ 0</div>
+            <div class="sub">Lo disponible entre todos.</div>
+          </div>
+          <div class="metric income">
+            <div class="metric-head"><div class="metric-icon">⬆️</div><div class="label">Ingresos del mes</div></div>
+            <div class="value" id="monthIncome">$ 0</div>
+            <div class="sub">Principalmente salario y otros ingresos.</div>
+          </div>
+          <div class="metric expense">
+            <div class="metric-head"><div class="metric-icon">⬇️</div><div class="label">Gastos del mes</div></div>
+            <div class="value" id="monthExpense">$ 0</div>
+            <div class="sub">Salidas del hogar y personales.</div>
+          </div>
+          <div class="metric flow">
+            <div class="metric-head"><div class="metric-icon">📊</div><div class="label">Saldo final del mes</div></div>
+            <div class="value" id="monthBalance">$ 0</div>
+            <div class="sub">Lo que deja el flujo de caja actual.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <div class="section-title">
+            <div>
+              <div class="section-kicker">Control</div>
+              <h3>Meta y presupuesto</h3>
+            </div>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-head"><strong>Meta mensual</strong><span id="goalMonthPct">0%</span></div>
+            <div id="goalMonthWrap" class="progress"><div id="goalMonthBar" style="width:0%"></div></div>
+            <div class="muted" id="goalMonthText" style="margin-top:7px">Sin meta definida</div>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-head"><strong>Presupuesto del mes</strong><span id="budgetStatusLabel">0%</span></div>
+            <div id="budgetStatusWrap" class="progress"><div id="budgetStatusBar" style="width:0%"></div></div>
+            <div class="muted" id="budgetStatusText" style="margin-top:7px">Todavía no hay presupuesto configurado.</div>
+          </div>
+          <div class="mini-card" style="margin-top:16px">
+            <div class="muted">Resumen ejecutivo</div>
+            <div id="monthSummary" style="margin-top:10px;font-weight:700;line-height:1.6">Todavía no hay suficientes movimientos para el cierre mensual.</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="section-title">
+            <div>
+              <div class="section-kicker">Actividad</div>
+              <h3>Últimos movimientos</h3>
+            </div>
+          </div>
+          <div id="recentList" class="list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-ingresos" class="tab-content hidden">
+      <div class="row">
+        <div class="panel">
+          <div class="section-title">
+            <div>
+              <div class="section-kicker">Registrar</div>
+              <h3 id="incomeFormTitle">Nuevo ingreso</h3>
+            </div>
+            <span class="tag personal" id="incomeEditBadge">Ingreso</span>
+          </div>
+          <div class="form-grid-3" style="margin-top:16px">
+            <div>
+              <label>Responsable</label>
+              <select id="incomeOwner">
+                <option value="Alexander">Alexander</option>
+                <option value="Nuri">Nuri</option>
+                <option value="Hogar">Hogar</option>
+              </select>
+            </div>
+            <div>
+              <label>Fecha</label>
+              <input id="incomeDate" type="date" />
+            </div>
+            <div>
+              <label>Categoría</label>
+              <select id="incomeCategory"></select>
+            </div>
+            <div>
+              <label>Valor</label>
+              <input id="incomeAmount" type="number" min="0" placeholder="0" />
+            </div>
+            <div>
+              <label>Método</label>
+              <select id="incomeMethod">
+                <option>Efectivo</option>
+                <option>Nequi</option>
+                <option>Banco</option>
+                <option>Tarjeta</option>
+                <option>Transferencia</option>
+              </select>
+            </div>
+            <div>
+              <label>Descripción</label>
+              <input id="incomeDescription" placeholder="Ej. Salario mensual" />
+            </div>
+          </div>
+          <div style="margin-top:14px">
+            <label>Observación</label>
+            <input id="incomeNote" placeholder="Notas opcionales" />
+          </div>
+          <div class="actions">
+            <button class="btn btn-success" id="btnSaveIncome">Guardar ingreso</button>
+            <button class="btn btn-outline" id="btnClearIncome">Limpiar</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="section-title">
+            <div>
+              <div class="section-kicker">Resumen</div>
+              <h3>Ingresos por persona</h3>
+            </div>
+          </div>
+          <div id="incomeSummary" class="cards-3" style="margin-top:12px"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-gastos" class="tab-content hidden">
+      <div class="row">
+        <div class="panel">
+          <div class="section-title">
+            <div>
+              <div class="section-kicker">Registrar</div>
+              <h3 id="expenseFormTitle">Nuevo gasto o deuda</h3>
+            </div>
+            <span class="tag warn" id="expenseEditBadge">Gasto</span>
+          </div>
+          <div class="form-grid-3" style="margin-top:16px">
+            <div>
+              <label>Tipo</label>
+              <select id="expenseType">
+                <option value="gasto">Gasto</option>
+                <option value="deuda">Deuda / cuota</option>
+              </select>
+            </div>
+            <div>
+              <label>Responsable</label>
+              <select id="expenseOwner">
+                <option value="Alexander">Alexander</option>
+                <option value="Nuri">Nuri</option>
+                <option value="Hogar">Hogar</option>
+              </select>
+            </div>
+            <div>
+              <label>Fecha</label>
+              <input id="expenseDate" type="date" />
+            </div>
+            <div>
+              <label>Categoría</label>
+              <select id="expenseCategory"></select>
+            </div>
+            <div>
+              <label>Valor</label>
+              <input id="expenseAmount" type="number" min="0" placeholder="0" />
+            </div>
+            <div>
+              <label>Método</label>
+              <select id="expenseMethod">
+                <option>Efectivo</option>
+                <option>Nequi</option>
+                <option>Banco</option>
+                <option>Tarjeta</option>
+                <option>Transferencia</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-grid" style="margin-top:14px">
+            <div>
+              <label>Descripción</label>
+              <input id="expenseDescription" placeholder="Ej. Mercado de la semana" />
+            </div>
+            <div>
+              <label>Observación</label>
+              <input id="expenseNote" placeholder="Notas opcionales" />
+            </div>
+          </div>
+          <div class="form-grid-3" style="margin-top:14px">
+            <div>
+              <label>¿Es gasto compartido 50/50?</label>
+              <select id="expenseSplit">
+                <option value="no">No</option>
+                <option value="si">Sí, dividir entre Alexander y Nuri</option>
+              </select>
+            </div>
+            <div>
+              <label>Estado de deuda</label>
+              <select id="expenseDebtStatus">
+                <option value="pendiente">Pendiente</option>
+                <option value="pagada">Pagada</option>
+              </select>
+            </div>
+            <div>
+              <label>Cuota recurrente mensual</label>
+              <select id="expenseRecurring">
+                <option value="no">No</option>
+                <option value="si">Sí</option>
+              </select>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-success" id="btnSaveExpense">Guardar gasto</button>
+            <button class="btn btn-outline" id="btnClearExpense">Limpiar</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="section-title">
+            <div>
+              <div class="section-kicker">Control</div>
+              <h3>Presupuesto por categoría</h3>
+            </div>
+          </div>
+          <div class="form-grid" style="margin-top:16px">
+            <div>
+              <label>Categoría</label>
+              <select id="budgetCategory"></select>
+            </div>
+            <div>
+              <label>Monto mensual</label>
+              <input id="budgetAmount" type="number" min="0" placeholder="0" />
+            </div>
+          </div>
+          <div class="actions"><button class="btn btn-primary" id="btnSaveBudget">Guardar presupuesto</button></div>
+          <div id="budgetList" class="list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-planificacion" class="tab-content hidden">
+      <div class="row">
+        <div class="panel">
+          <div class="section-title">
+            <div>
+              <div class="section-kicker">Metas</div>
+              <h3>Objetivos de ahorro</h3>
+            </div>
+          </div>
+          <div class="form-grid" style="margin-top:16px">
+            <div>
+              <label>Objetivo</label>
+              <input id="goalName" placeholder="Ej. Viaje, emergencia, hogar" />
+            </div>
+            <div>
+              <label>Monto meta</label>
+              <input id="goalAmount" type="number" min="0" placeholder="0" />
+            </div>
+            <div>
+              <label>Ahorrado</label>
+              <input id="goalSaved" type="number" min="0" placeholder="0" />
+            </div>
+            <div>
+              <label>Responsable</label>
+              <select id="goalOwner">
+                <option value="Hogar">Hogar</option>
+                <option value="Alexander">Alexander</option>
+                <option value="Nuri">Nuri</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top:14px">
+            <label>Meta mensual general</label>
+            <input id="goalMonthly" type="number" min="0" placeholder="0" />
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary" id="btnSaveGoalItem">Guardar objetivo</button>
+          </div>
+          <div id="goalList" class="list"></div>
+        </div>
+
+        <div class="panel">
+          <div class="section-title">
+            <div>
+              <div class="section-kicker">Visual</div>
+              <h3>¿En qué gastan más?</h3>
+            </div>
+          </div>
+          <div id="chartArea" class="bar-chart"></div>
+
+          <div class="section-title" style="margin-top:18px">
+            <div>
+              <div class="section-kicker">Recurrentes</div>
+              <h3>Cuotas mensuales</h3>
+            </div>
+          </div>
+          <div id="recurringList" class="list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-movimientos" class="tab-content hidden">
+      <div class="panel">
+        <div class="section-title">
+          <div>
+            <div class="section-kicker">Historial</div>
+            <h3>Todos los movimientos</h3>
+          </div>
+          <div class="stack">
+            <select id="filterOwner">
+              <option value="Todos">Todos</option>
+              <option>Alexander</option>
+              <option>Nuri</option>
+              <option>Hogar</option>
+            </select>
+            <select id="filterType">
+              <option value="Todos">Todos</option>
+              <option value="ingreso">Ingreso</option>
+              <option value="gasto">Gasto</option>
+              <option value="deuda">Deuda / cuota</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Responsable</th>
+                <th>Categoría</th>
+                <th>Descripción</th>
+                <th class="right">Valor</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="txTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-reportes" class="tab-content hidden">
+      <div class="row">
+        <div class="panel">
+          <div class="section-title">
+            <div>
+              <div class="section-kicker">Reporte</div>
+              <h3>Flujo de caja y cuentas</h3>
+            </div>
+          </div>
+          <div id="reportAccounts" class="cards-3"></div>
+        </div>
+
+        <div class="panel">
+          <div class="section-title">
+            <div>
+              <div class="section-kicker">Reporte</div>
+              <h3>Alertas del presupuesto</h3>
+            </div>
+          </div>
+          <div id="budgetAlerts" class="list"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer-note">Hecho con cariño para Alexander, Nuri y el Hogar.</div>
+  </div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
